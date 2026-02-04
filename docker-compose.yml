@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    ports:
+      - '5432:5432'
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    env_file:
+      - ./apps/api/.env
+
+  api:
+    build:
+      context: ./apps/api
+    command: npm run dev
+    volumes:
+      - ./apps/api:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - '4000:4000'
+      - '3001:3001'
+    depends_on:
+      - db
+    env_file:
+      - ./apps/api/.env
+
+  frontend:
+    build:
+      context: ./apps/home
+    command: npm run dev
+    volumes:
+      - ./apps/home:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - '5173:5173'
+    environment:
+      - NODE_ENV=development
+
+volumes:
+  db_data:
