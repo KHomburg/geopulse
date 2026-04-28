@@ -59,8 +59,9 @@ The hotspot feature, should be weighted by engagement, not just volume. Ten phot
 - a web app which is provided to the mobile experience via a PWA
 - intuitive navigation
 - high data security standards - no cross user data retrievel
-- each DB that contains user related data contains a column `userId` to indicate the owner of that dataset
+- each table that contains user related data contains a column `userId` to indicate the owner of that dataset
 - generally recommended, state-of-the-art security standards for api and data security
+- all libraries that will be used, should be free for commercial use
 
 ## basic technical requirements
 - usage of `any` should be prevented as much as possible
@@ -93,10 +94,8 @@ to ensure to not run into circular dependency issues, to module use a layered ap
 ## Frontend standards
 - state-of-the-art react setup
 - Zustand for state management
-- dark design language with neon highlights
-- ui build on shadcn component library
-  - https://ui.shadcn.com/
-  - https://github.com/shadcn-ui/ui
+- should build upon an existing component library (free for commercial use) and implement its own design system
+- No dependency to tailwind
 
 ## testing
 - create seeds for demos and testing, that will be adjusted at each step where the db structure changes
