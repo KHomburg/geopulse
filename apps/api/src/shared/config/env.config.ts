@@ -13,6 +13,7 @@ export const config = (() => {
 		DB_USERNAME: process.env.DB_USERNAME || "postgres",
 		DB_PASSWORD: process.env.DB_PASSWORD || "password",
 		DB_DATABASE: process.env.DB_DATABASE || "myapp",
+		DB_STORAGE: process.env.DB_STORAGE || "./dev.sqlite",
 
 		// JWT
 		TOKEN_KEY: process.env.TOKEN_KEY || "secret",

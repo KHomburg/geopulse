@@ -12,5 +12,7 @@ export const authLimiter = rateLimit({
 	max: 20,
 	standardHeaders: true,
 	legacyHeaders: false,
-	message: { message: "Too many attempts, please try again later." }
+	message: { message: "Too many attempts, please try again later." },
+	// Skip rate limiting outside production (e.g. local dev and E2E tests)
+	skip: () => process.env.NODE_ENV !== "production"
 });

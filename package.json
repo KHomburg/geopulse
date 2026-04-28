@@ -7,6 +7,7 @@
 		"format": "npx prettier --write \"**/*.{js,jsx,json,ts,tsx,md}\""
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.59.1",
 		"autoprefixer": "^10.4.14",
 		"eslint": "^7.32.0",
 		"eslint-config-custom": "*",

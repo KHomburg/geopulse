@@ -1,0 +1,48 @@
+/* GeoPulse global styles */
+
+:root {
+  --gp-bg: #0a0a0a;
+  --gp-surface: #141414;
+  --gp-surface-alt: #1e1e1e;
+  --gp-border: #2a2a2a;
+  --gp-accent: #6c63ff;
+  --gp-accent-hover: #8b85ff;
+  --gp-text: #f0f0f0;
+  --gp-text-muted: #888;
+  --gp-danger: #ff4757;
+  --gp-success: #2ed573;
+  --gp-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--gp-bg);
+  color: var(--gp-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Smooth scrolling */
+* {
+  scroll-behavior: smooth;
+}
+
+/* MapLibre overrides */
+.maplibregl-ctrl-logo,
+.maplibregl-ctrl-attrib {
+  display: none !important;
+}
+
+.maplibregl-map {
+  font-family: inherit;
+}

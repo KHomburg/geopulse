@@ -38,7 +38,8 @@
 		"dev": "nodemon ./src/index.ts",
 		"build": "tsc",
 		"test": "cross-env NODE_ENV=test jest",
-		"lint": "npx eslint ."
+		"lint": "npx eslint .",
+		"seed": "cross-env NODE_ENV=development ts-node src/seeds/seed.ts"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.21.0",

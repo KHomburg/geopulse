@@ -2,7 +2,11 @@
 import { sequelize } from "./shared/config/sequelize.config";
 import App from "./shared/config/express.config";
 import { config } from "./shared/config/env.config";
-import User from "./modules/user/user.model";
+// models must be imported to register them with sequelize before sync
+import "./modules/user/user.model";
+import "./modules/post/post.model";
+import "./modules/vote/vote.model";
+import "./shared/config/models.associations";
 //#endregion
 
 //#region Config
@@ -13,10 +17,9 @@ const port = config.PORT;
 (async () => {
 	try {
 		await sequelize.authenticate();
-		await sequelize.sync({ alter: true }).then(() => {
-			// Sync all models
-			User.sync().then(() => console.log("User table synced"));
-		});
+		// Sync all models in a single call; individual syncs are redundant
+		await sequelize.sync({ alter: true });
+		console.log("All tables synced successfully.");
 		console.log("Connection has been established successfully.");
 	} catch (error) {
 		console.error("Unable to connect to the database:", error);

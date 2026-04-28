@@ -10,6 +10,8 @@ import morgan from "morgan";
 // Router
 import { UserRouter } from "./../../modules/user/user.routes";
 import { AuthRouter } from "../../modules/auth/auth.routes";
+import { PostRouter } from "../../modules/post/post.routes";
+import { VoteRouter } from "../../modules/vote/vote.routes";
 import { globalLimiter } from "../middleware/rateLimit.middleware";
 import { config } from "./env.config";
 import { errorHandler, notFoundHandler } from "../middleware/error.middleware";
@@ -62,11 +64,22 @@ App.get("/", (req, res) => {
 	res.status(200).send("Hello");
 });
 
+// Health check for readiness probes / E2E test setup
+App.get("/api/v1/health", (req, res) => {
+	res.status(200).json({ status: "ok" });
+});
+
 // Users
 App.use("/api/v1/user", UserRouter);
 
 // Auth
 App.use("/api/v1/auth", AuthRouter);
+
+// Posts
+App.use("/api/v1/posts", PostRouter);
+
+// Votes (nested under posts)
+App.use("/api/v1/posts/:postId/votes", VoteRouter);
 
 //#endregion
 // 404 and Error handlers
