@@ -107,3 +107,4 @@ to ensure to not run into circular dependency issues, to module use a layered ap
 ## development and documentation
 - for rapid prototyping and development use a sqlite database
 - for every deveopment step and every feature progress there should be a markdown file in the documentation folder with timestamp in the name, documenting what has be done and summarizing the ai conversation session
+- repeatadly go back to what already has been done - review it and improve iteratively
