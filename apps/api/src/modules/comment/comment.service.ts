@@ -1,6 +1,7 @@
 import { CommentRepository } from "./comment.repository";
 import Post from "../post/post.model";
 import NotificationService from "../notification/notification.service";
+import { ActivityService } from "../../shared/activity/activity.service";
 
 const CommentService = {
 	async createComment(params: {
@@ -14,6 +15,13 @@ const CommentService = {
 			throw Object.assign(new Error("Post not found"), { status: 404 });
 		}
 		const comment = await CommentRepository.create(params);
+		ActivityService.recordActivity({
+			userId: params.userId,
+			lat: post.obfuscatedLat,
+			lng: post.obfuscatedLng,
+			weight: 2,
+			kind: "comment"
+		});
 
 		// Notify post owner (if not the commenter)
 		if (post.userId !== params.userId) {

@@ -1,5 +1,6 @@
 import { NotificationRepository } from "./notification.repository";
 import type { NotificationType } from "./notification.model";
+import { RealtimeService } from "../realtime/realtime.service";
 
 const NotificationService = {
 	async getNotifications(userId: number, limit?: number, offset?: number) {
@@ -20,10 +21,15 @@ const NotificationService = {
 				status: 404
 			});
 		}
+		const count = await NotificationRepository.countUnread(userId);
+		RealtimeService.sendToUser(userId, "notifications:unread", { count });
 	},
 
 	async markAllRead(userId: number) {
 		await NotificationRepository.markAllRead(userId);
+		RealtimeService.sendToUser(userId, "notifications:unread", {
+			count: 0
+		});
 	},
 
 	async createNotification(params: {
@@ -34,7 +40,15 @@ const NotificationService = {
 		referenceType?: string | null;
 		actorId?: number | null;
 	}) {
-		return NotificationRepository.create(params);
+		const notification = await NotificationRepository.create(params);
+		const count = await NotificationRepository.countUnread(params.userId);
+		RealtimeService.sendToUser(params.userId, "notification:new", {
+			notification
+		});
+		RealtimeService.sendToUser(params.userId, "notifications:unread", {
+			count
+		});
+		return notification;
 	}
 };
 

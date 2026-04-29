@@ -3,6 +3,7 @@ import { DataTypes, Model } from "sequelize";
 
 export type AnonymityMode = "public" | "local_legend" | "anonymous";
 export type TimeFilter = "now" | "today" | "week";
+export type PostType = "standard" | "drop";
 
 export class Post extends Model {
 	declare id: number;
@@ -14,6 +15,11 @@ export class Post extends Model {
 	declare obfuscatedLat: number;
 	declare obfuscatedLng: number;
 	declare karmaScore: number;
+	declare postType: PostType;
+	declare tags: string | null;
+	declare dropHint: string | null;
+	declare dropUnlockRadiusMeters: number | null;
+	declare boostedUntil: Date | null;
 	declare isStory: boolean;
 	declare isActive: boolean;
 	declare expiresAt: Date | null;
@@ -63,6 +69,27 @@ Post.init(
 			type: DataTypes.INTEGER,
 			allowNull: false,
 			defaultValue: 0
+		},
+		postType: {
+			type: DataTypes.ENUM("standard", "drop"),
+			allowNull: false,
+			defaultValue: "standard"
+		},
+		tags: {
+			type: DataTypes.STRING,
+			allowNull: true
+		},
+		dropHint: {
+			type: DataTypes.STRING,
+			allowNull: true
+		},
+		dropUnlockRadiusMeters: {
+			type: DataTypes.INTEGER,
+			allowNull: true
+		},
+		boostedUntil: {
+			type: DataTypes.DATE,
+			allowNull: true
 		},
 		isStory: {
 			type: DataTypes.BOOLEAN,

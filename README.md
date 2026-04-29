@@ -1,47 +1,89 @@
-[![Express JS](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)]()
-[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)]()
-[![React Router](https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=react-router&logoColor=white)]()
-[![React Query](https://img.shields.io/badge/React_Query-FF4154?style=for-the-badge&logo=React_Query&logoColor=white)]()
-[![TS Node](https://img.shields.io/badge/ts--node-3178C6?style=for-the-badge&logo=ts-node&logoColor=white)]()
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)]()
-[![Typescript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)]()
+# GeoPulse
 
+GeoPulse is a hyperlocal social app built as a Turborepo workspace with an Express API and a React client. The product centers on a live map, a local feed, realtime direct messages, notifications, and karma-driven community features such as trusted spaces, lounge rooms, drops, and cosmetic perks.
 
-# Installation
-Create a `.env` file in the project directory (apps/api and apps/dashoard) with your environment variables. You can copy the contents of the `.env.example` file and replace the values  with your own. <br /> <br />
-Install dependencies by running the command in the terminal (root folder)
-```
+## Workspace
+
+- `apps/api`: Express + TypeScript + Sequelize API
+- `apps/home`: React 19 + Vite + Mantine + Zustand client
+- `e2e`: Playwright end-to-end coverage
+- `documentation`: Product and implementation notes
+
+## Core Product Surfaces
+
+- Realtime messaging and notifications delivered over a single authenticated SSE stream
+- Five-tab mobile shell: Map, Feed, Create, Messages, Profile
+- Map discovery with post markers, activity heat trails, hotspots, friend ghost markers, and live lounge prompts
+- Feed and map tag filtering for local vibes such as food, events, music, and outdoors
+- Karma-backed perks including pin avatars, username colors, and Super Local Legend boosts
+- Trusted Locals feed and room access once a user reaches the required karma threshold
+- Geo-locked Drops that stay blurred until a user is within the unlock radius
+- Ghost Mode for time-boxed, fuzzed location sharing with accepted friends only
+
+## Setup
+
+1. Install dependencies from the repo root.
+
+```bash
 npm install
 ```
 
-Run the following command in the root directory to start the application
+2. Create the API environment file.
+
+```bash
+cp apps/api/.env.example apps/api/.env
 ```
+
+3. Start PostgreSQL locally. One simple option is Docker.
+
+```bash
+docker run --name geopulse-postgres -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_DB=geopulse -d postgres
+```
+
+## Development
+
+Run the full workspace:
+
+```bash
 npm run dev
 ```
 
-create a db
+Run individual apps when you only need one surface:
+
 ```bash
-docker run --name <your-app-name>  -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_DB=<your-app-name> -d postgres
+npm run dev -w apps/api
+npm run dev -w apps/home
 ```
 
-docker run --name <your_app_name>  -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_DB=melo_app -d postgres
+## Build
 
-# Build
+Build the full workspace:
 
-To build a production-ready version of your application, run the command in the terminal (root folder):
-
-```
+```bash
 npm run build
 ```
 
+Build a single app:
 
-# Framework / Libraries
-This project uses the following frameworks and libraries:
+```bash
+npm run build -w apps/api
+npm run build -w apps/home
+```
 
- - [🚀 Turborepo](https://turbo.build/repo) - A build tool for a mono repo that is optimized for JavaScript and TypeScript codebases1
- - [⚛️ React](https://react.dev/) - a free and open-source front-end JavaScript library for building user interfaces based on UI components.
- - [🌐 Express JS](https://expressjs.com/) - A popular web application framework for Node.js, a JavaScript runtime environment that allows server-side JavaScript execution.
- - [🔍 React Query](https://tanstack.com/query/v4/docs/react/adapters/react-query) - A JavaScript library for managing and synchronizing server state in React applications.
- - [🎨 Tailwind CSS](https://tailwindcss.com/) - A utility-first CSS framework that provides a set of pre-designed utility classes to quickly build user interfaces.
- - [📚 Typescript](https://www.typescriptlang.org/) - A strongly-typed superset of JavaScript that adds static typing and other features to the language.
- - [🐻 Zustand](https://github.com/pmndrs/zustand) - A state management library for React applications.
+## Implementation Notes
+
+- Realtime delivery uses Server-Sent Events instead of polling for direct messages, typing indicators, unread counts, and notification pushes.
+- Presence samples and activity aggregation drive live lounges and map heat trails.
+- React Router v7 ships its own types; the client should not install `@types/react-router-dom`.
+
+## Stack
+
+- [Turborepo](https://turbo.build/repo)
+- [Express](https://expressjs.com/)
+- [Sequelize](https://sequelize.org/)
+- [React](https://react.dev/)
+- [React Router](https://reactrouter.com/)
+- [Mantine](https://mantine.dev/)
+- [MapLibre GL](https://maplibre.org/)
+- [Zustand](https://github.com/pmndrs/zustand)
+- [TypeScript](https://www.typescriptlang.org/)

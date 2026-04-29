@@ -29,25 +29,25 @@ const LOCATIONS = [
 const USERS = [
 	{
 		email: "alice@geopulse.dev",
-		password: "Alice1234!",
+		password: "password",
 		username: "alice_b",
 		displayName: "Alice B."
 	},
 	{
 		email: "bob@geopulse.dev",
-		password: "Bob12345!",
+		password: "password",
 		username: "bob_nyc",
 		displayName: "Bob N."
 	},
 	{
 		email: "demo@geopulse.dev",
-		password: "Demo1234!",
+		password: "password",
 		username: "demo_user",
 		displayName: "Demo User"
 	},
 	{
 		email: "ghost@geopulse.dev",
-		password: "Ghost123!",
+		password: "password",
 		username: null,
 		displayName: null
 	}
@@ -156,8 +156,9 @@ async function seed() {
 			isTrusted: u.email === "demo@geopulse.dev"
 		} as any);
 		createdUsers.push(user);
-		console.log(`  👤 Created user: ${u.email}`);
 	}
+
+	console.log(`✅ Created ${createdUsers.length} users`);
 
 	// ─── Create posts ─────────────────────────────────────────────────────────
 	const createdPosts: Post[] = [];
@@ -195,10 +196,9 @@ async function seed() {
 		} as any);
 
 		createdPosts.push(post);
-		console.log(
-			`  📍 Post #${post.id}: "${template.content.slice(0, 40)}…"`
-		);
 	}
+
+	console.log(`✅ Created ${createdPosts.length} posts`);
 
 	// ─── Create votes ─────────────────────────────────────────────────────────
 	let voteCount = 0;

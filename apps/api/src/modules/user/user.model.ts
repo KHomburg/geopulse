@@ -9,6 +9,9 @@ export class User extends Model {
 	declare avatarUrl: string | null;
 	declare karmaScore: number;
 	declare isTrusted: boolean;
+	declare pinAvatar: string | null;
+	declare usernameColor: string | null;
+	declare superPostCredits: number;
 	declare createdAt: Date;
 	declare updatedAt: Date;
 	declare deletedAt: Date;
@@ -51,6 +54,19 @@ User.init(
 			type: DataTypes.BOOLEAN,
 			allowNull: false,
 			defaultValue: false
+		},
+		pinAvatar: {
+			type: DataTypes.STRING,
+			allowNull: true
+		},
+		usernameColor: {
+			type: DataTypes.STRING,
+			allowNull: true
+		},
+		superPostCredits: {
+			type: DataTypes.INTEGER,
+			allowNull: false,
+			defaultValue: 0
 		}
 	},
 	{

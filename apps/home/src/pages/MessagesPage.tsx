@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
 	Avatar,
 	Box,
@@ -12,6 +12,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
 import { messagesApi, type Conversation } from "../api/messages.api";
+import { subscribeRealtime } from "../realtime/realtime.client";
 
 function timeAgo(dateStr: string): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
@@ -46,19 +47,29 @@ const MessagesPage = () => {
 	const [conversations, setConversations] = useState<Conversation[]>([]);
 	const [loading, setLoading] = useState(true);
 
+	const load = useCallback(async () => {
+		setLoading(true);
+		try {
+			const { data } = await messagesApi.getConversations();
+			setConversations(data.data);
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
 	useEffect(() => {
 		if (!isAuthenticated) return;
-		const load = async () => {
-			setLoading(true);
-			try {
-				const { data } = await messagesApi.getConversations();
-				setConversations(data.data);
-			} finally {
-				setLoading(false);
+		void load();
+	}, [isAuthenticated, load]);
+
+	useEffect(() => {
+		if (!isAuthenticated) return;
+		return subscribeRealtime((event) => {
+			if (event.type === "message:new") {
+				void load();
 			}
-		};
-		load();
-	}, [isAuthenticated]);
+		});
+	}, [isAuthenticated, load]);
 
 	if (!isAuthenticated) {
 		return (

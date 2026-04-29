@@ -1,6 +1,8 @@
 import VoteRepository from "./vote.repository";
 import PostRepository from "../post/post.repository";
 import type { VoteValue } from "./vote.model";
+import UserRepository from "../user/user.repository";
+import { ActivityService } from "../../shared/activity/activity.service";
 
 export interface CastVoteResult {
 	status: "created" | "updated" | "unchanged";
@@ -37,6 +39,15 @@ export const VoteService = {
 
 		if (delta !== 0) {
 			await PostRepository.incrementKarma(postId, delta);
+			await UserRepository.incrementKarma(post.userId, delta);
+			await UserRepository.syncTrustedStatus(post.userId);
+			ActivityService.recordActivity({
+				userId,
+				lat: post.obfuscatedLat,
+				lng: post.obfuscatedLng,
+				weight: 3,
+				kind: "vote"
+			});
 		}
 
 		// Refresh karma from DB
@@ -50,6 +61,11 @@ export const VoteService = {
 
 		await VoteRepository.deleteByUserAndPost(userId, postId);
 		await PostRepository.incrementKarma(postId, -existing.value);
+		const post = await PostRepository.findById(postId);
+		if (post) {
+			await UserRepository.incrementKarma(post.userId, -existing.value);
+			await UserRepository.syncTrustedStatus(post.userId);
+		}
 		return true;
 	},
 

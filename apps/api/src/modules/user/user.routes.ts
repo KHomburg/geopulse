@@ -1,9 +1,12 @@
 import { Router } from "express";
 import {
 	CreateUser,
+	GetMe,
+	GetPerkCatalog,
 	GetUser,
 	GetUsers,
 	DeleteUser,
+	PurchasePerk,
 	UpdateUser,
 	UpdateUserEmail,
 	SearchUsers
@@ -12,6 +15,9 @@ import { AuthMiddleware } from "../../shared/middleware/auth.middleware";
 
 const UserRouter = Router();
 UserRouter.get("/search", SearchUsers);
+UserRouter.get("/me", AuthMiddleware, GetMe);
+UserRouter.get("/me/perks", AuthMiddleware, GetPerkCatalog);
+UserRouter.post("/me/perks/purchase", AuthMiddleware, PurchasePerk);
 UserRouter.get("/", GetUsers);
 UserRouter.get("/:id", GetUser);
 UserRouter.post("/", CreateUser);

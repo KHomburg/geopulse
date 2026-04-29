@@ -57,6 +57,9 @@ export const messagesApi = {
 			content
 		}),
 
+	sendTyping: (conversationId: number) =>
+		apiClient.post(`/conversations/${conversationId}/typing`),
+
 	markRead: (conversationId: number) =>
 		apiClient.patch(`/conversations/${conversationId}/read`)
 };

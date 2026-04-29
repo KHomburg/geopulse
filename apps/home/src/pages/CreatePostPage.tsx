@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+	Badge,
 	Box,
 	Button,
 	Group,
@@ -13,6 +14,8 @@ import { useNavigate } from "react-router-dom";
 import { postsApi, type AnonymityMode } from "../api/posts.api";
 import { useFeedStore } from "../store/feed.store";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { POST_TAGS, type PostTagKey } from "../constants/postTags";
+import { userApi, type CurrentUser } from "../api/user.api";
 
 const ANONYMITY_DATA = [
 	{ label: "🌍 Public", value: "public" },
@@ -28,14 +31,40 @@ const CreatePostPage = () => {
 	const [content, setContent] = useState("");
 	const [mode, setMode] = useState<AnonymityMode>("public");
 	const [pseudonym, setPseudonym] = useState("");
+	const [postType, setPostType] = useState<"standard" | "drop">("standard");
+	const [selectedTags, setSelectedTags] = useState<PostTagKey[]>([]);
+	const [dropHint, setDropHint] = useState("");
+	const [dropUnlockRadiusMeters] = useState(20);
+	const [isSuperLocalLegend, setIsSuperLocalLegend] = useState(false);
+	const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 	const [isStory, setIsStory] = useState(false);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState("");
 
+	useEffect(() => {
+		userApi
+			.getMe()
+			.then(({ data }) => setCurrentUser(data))
+			.catch(() => setCurrentUser(null));
+	}, []);
+
 	const canSubmit =
 		content.trim().length > 0 &&
 		(mode !== "local_legend" || pseudonym.trim().length > 0) &&
+		(postType !== "drop" || dropHint.trim().length > 0) &&
 		location.lat !== null;
+
+	const toggleTag = (tag: PostTagKey) => {
+		setSelectedTags((current) => {
+			if (current.includes(tag)) {
+				return current.filter((item) => item !== tag);
+			}
+			if (current.length >= 3) {
+				return current;
+			}
+			return [...current, tag];
+		});
+	};
 
 	const handleSubmit = async () => {
 		if (!canSubmit || !location.lat || !location.lng) return;
@@ -47,6 +76,11 @@ const CreatePostPage = () => {
 				anonymityMode: mode,
 				pseudonym:
 					mode === "local_legend" ? pseudonym.trim() : undefined,
+				postType,
+				tags: selectedTags,
+				dropHint: postType === "drop" ? dropHint.trim() : undefined,
+				dropUnlockRadiusMeters,
+				isSuperLocalLegend,
 				lat: location.lat,
 				lng: location.lng,
 				isStory
@@ -147,6 +181,127 @@ const CreatePostPage = () => {
 					maxLength={2000}
 					autosize
 				/>
+
+				<Box>
+					<Text
+						size="xs"
+						c="dimmed"
+						mb={8}
+						fw={600}
+						style={{
+							textTransform: "uppercase",
+							letterSpacing: 0.5
+						}}
+					>
+						Post type
+					</Text>
+					<SegmentedControl
+						fullWidth
+						data={[
+							{ label: "Pulse", value: "standard" },
+							{ label: "Drop", value: "drop" }
+						]}
+						value={postType}
+						onChange={(value) =>
+							setPostType(value as "standard" | "drop")
+						}
+					/>
+				</Box>
+
+				{postType === "drop" && (
+					<TextInput
+						label="Drop hint"
+						placeholder="Tease what unlocks when someone gets close"
+						value={dropHint}
+						onChange={(event) =>
+							setDropHint(event.currentTarget.value)
+						}
+						maxLength={140}
+						description={`Unlock radius fixed at ${dropUnlockRadiusMeters}m`}
+					/>
+				)}
+
+				<Box>
+					<Text
+						size="xs"
+						c="dimmed"
+						mb={8}
+						fw={600}
+						style={{
+							textTransform: "uppercase",
+							letterSpacing: 0.5
+						}}
+					>
+						Vibe tags
+					</Text>
+					<Group gap={8}>
+						{POST_TAGS.map((tag) => {
+							const selected = selectedTags.includes(tag.key);
+							return (
+								<Button
+									key={tag.key}
+									size="xs"
+									variant={selected ? "filled" : "outline"}
+									color={selected ? "violet" : "gray"}
+									onClick={() => toggleTag(tag.key)}
+								>
+									{tag.icon} {tag.label}
+								</Button>
+							);
+						})}
+					</Group>
+				</Box>
+
+				{mode === "local_legend" &&
+					(currentUser?.superPostCredits ?? 0) > 0 && (
+						<Group gap={12} align="center">
+							<Box
+								onClick={() =>
+									setIsSuperLocalLegend((value) => !value)
+								}
+								style={{
+									width: 44,
+									height: 24,
+									borderRadius: 12,
+									background: isSuperLocalLegend
+										? "#ff9f43"
+										: "#2a2a2a",
+									position: "relative",
+									cursor: "pointer"
+								}}
+							>
+								<Box
+									style={{
+										position: "absolute",
+										top: 2,
+										left: isSuperLocalLegend ? 22 : 2,
+										width: 20,
+										height: 20,
+										borderRadius: "50%",
+										background: "#fff"
+									}}
+								/>
+							</Box>
+							<Stack gap={0}>
+								<Text size="sm" fw={600}>
+									Super Local Legend
+								</Text>
+								<Text size="xs" c="dimmed">
+									Pins this post to the top for an extra hour.{" "}
+									{currentUser?.superPostCredits} credit(s)
+									left.
+								</Text>
+							</Stack>
+						</Group>
+					)}
+
+				{mode === "local_legend" &&
+					(currentUser?.superPostCredits ?? 0) === 0 && (
+						<Badge color="yellow" variant="light">
+							Visit the Karma Shop to unlock Super Local Legend
+							boosts
+						</Badge>
+					)}
 
 				{/* Story toggle */}
 				<Group gap={12} align="center">

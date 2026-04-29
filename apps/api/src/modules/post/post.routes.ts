@@ -5,6 +5,7 @@ import {
 	createPost,
 	getPost,
 	getFeed,
+	getTrustedFeed,
 	deletePost,
 	getHotspots
 } from "./post.controller";
@@ -14,6 +15,7 @@ const PostRouter = Router();
 // Public routes
 PostRouter.get("/", asyncHandler(getFeed));
 PostRouter.get("/hotspots", asyncHandler(getHotspots));
+PostRouter.get("/trusted-locals", AuthMiddleware, asyncHandler(getTrustedFeed));
 PostRouter.get("/:id", asyncHandler(getPost));
 
 // Authenticated routes

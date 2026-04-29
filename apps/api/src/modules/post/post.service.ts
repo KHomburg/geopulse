@@ -1,6 +1,9 @@
 import PostRepository from "./post.repository";
 import { obfuscateCoordinates, haversineDistanceMeters } from "./post.utils";
 import type { AnonymityMode } from "./post.model";
+import UserRepository from "../user/user.repository";
+import { ActivityService } from "../../shared/activity/activity.service";
+import { TRUSTED_LOCALS_MIN_KARMA } from "../user/user.perks";
 
 // Degrees per km (approximate)
 const DEG_PER_KM = 1 / 111.32;
@@ -34,6 +37,11 @@ export interface CreatePostInput {
 	mediaUrl?: string;
 	anonymityMode: AnonymityMode;
 	pseudonym?: string;
+	postType: "standard" | "drop";
+	tags?: string[];
+	dropHint?: string;
+	dropUnlockRadiusMeters?: number;
+	isSuperLocalLegend?: boolean;
 	lat: number;
 	lng: number;
 	isStory: boolean;
@@ -45,6 +53,27 @@ export interface HotspotCluster {
 	postCount: number;
 	totalKarma: number;
 	weight: number;
+}
+
+function normalizeTags(tags: string[] = []) {
+	return [
+		...new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))
+	];
+}
+
+function splitStoredTags(tags: string | null | undefined) {
+	return tags ? tags.split(",").filter(Boolean) : [];
+}
+
+function filterPostsByTags<T extends { tags?: string | null }>(
+	posts: T[],
+	tags?: string[]
+) {
+	if (!tags?.length) return posts;
+	return posts.filter((post) => {
+		const stored = splitStoredTags(post.tags);
+		return tags.some((tag) => stored.includes(tag));
+	});
 }
 
 /**
@@ -124,6 +153,21 @@ function computeHotspots(
 
 export const PostService = {
 	async createPost(input: CreatePostInput) {
+		if (input.isSuperLocalLegend) {
+			const user = await UserRepository.findById(input.userId);
+			if (!user || user.superPostCredits < 1) {
+				throw Object.assign(
+					new Error(
+						"Buy a Super Local Legend credit in the Karma Shop first"
+					),
+					{ status: 400 }
+				);
+			}
+			await UserRepository.updateById(input.userId, {
+				superPostCredits: user.superPostCredits - 1
+			});
+		}
+
 		const { obfuscatedLat, obfuscatedLng } = obfuscateCoordinates(
 			input.lat,
 			input.lng
@@ -144,8 +188,27 @@ export const PostService = {
 					: null,
 			obfuscatedLat,
 			obfuscatedLng,
+			postType: input.postType,
+			tags: normalizeTags(input.tags).join(",") || null,
+			dropHint: input.postType === "drop" ? input.dropHint ?? null : null,
+			dropUnlockRadiusMeters:
+				input.postType === "drop"
+					? input.dropUnlockRadiusMeters ?? 20
+					: null,
+			boostedUntil: input.isSuperLocalLegend
+				? new Date(Date.now() + 60 * 60 * 1000)
+				: null,
 			isStory: input.isStory,
 			expiresAt
+		}).then((post) => {
+			ActivityService.recordActivity({
+				userId: input.userId,
+				lat: obfuscatedLat,
+				lng: obfuscatedLng,
+				weight: input.isSuperLocalLegend ? 4 : 2,
+				kind: "post"
+			});
+			return post;
 		});
 	},
 
@@ -158,17 +221,59 @@ export const PostService = {
 		lng: number;
 		radiusKm: number;
 		filter: "now" | "today" | "week";
+		tags?: string[];
 		limit: number;
 		offset: number;
 	}) {
 		const bbox = buildBoundingBox(params.lat, params.lng, params.radiusKm);
 		const since = timeFilterToDate(params.filter);
-		return PostRepository.findByLocation({
+		const fetchLimit = params.tags?.length
+			? Math.max((params.offset + params.limit) * 3, 60)
+			: params.limit;
+		const posts = await PostRepository.findByLocation({
 			...bbox,
 			since,
-			limit: params.limit,
-			offset: params.offset
+			limit: fetchLimit,
+			offset: params.tags?.length ? 0 : params.offset
 		});
+		const filtered = filterPostsByTags(posts, normalizeTags(params.tags));
+		return params.tags?.length
+			? filtered.slice(params.offset, params.offset + params.limit)
+			: filtered;
+	},
+
+	async getTrustedFeed(params: {
+		userId: number;
+		lat: number;
+		lng: number;
+		radiusKm: number;
+		filter: "now" | "today" | "week";
+		tags?: string[];
+		limit: number;
+		offset: number;
+	}) {
+		const user = await UserRepository.findById(params.userId);
+		if (
+			!user ||
+			(user.karmaScore < TRUSTED_LOCALS_MIN_KARMA && !user.isTrusted)
+		) {
+			throw Object.assign(
+				new Error("Trusted Locals opens at 500 karma"),
+				{ status: 403 }
+			);
+		}
+
+		const bbox = buildBoundingBox(params.lat, params.lng, params.radiusKm);
+		const since = timeFilterToDate(params.filter);
+		const posts = await PostRepository.findByLocation({
+			...bbox,
+			since,
+			limit: Math.max((params.offset + params.limit) * 3, 60),
+			offset: 0,
+			trustedOnly: true
+		});
+		const filtered = filterPostsByTags(posts, normalizeTags(params.tags));
+		return filtered.slice(params.offset, params.offset + params.limit);
 	},
 
 	async deletePost(id: number, userId: number): Promise<boolean> {

@@ -53,6 +53,13 @@ export const sendMessage = async (req: Request, res: Response) => {
 	return res.status(201).json(message);
 };
 
+export const sendTyping = async (req: Request, res: Response) => {
+	const userId = Number(req.id);
+	const { conversationId } = ConvIdParam.parse(req.params);
+	await MessageService.sendTypingIndicator(conversationId, userId);
+	return res.status(202).json({ message: "Typing indicator sent" });
+};
+
 export const markRead = async (req: Request, res: Response) => {
 	const userId = Number(req.id);
 	const { conversationId } = ConvIdParam.parse(req.params);

@@ -1,9 +1,13 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Box, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useAuthStore } from "../store/auth.store";
 import { messagesApi } from "../api/messages.api";
 import { notificationsApi } from "../api/notifications.api";
+import { subscribeRealtime } from "../realtime/realtime.client";
+import { useInboxStore } from "../store/inbox.store";
+import { useGeolocation } from "../hooks/useGeolocation";
+import { usePresenceTracker } from "../hooks/usePresenceTracker";
 
 interface NavItem {
 	path: string;
@@ -16,8 +20,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
 	{ path: "/map", icon: "🗺️", label: "Map" },
 	{ path: "/feed", icon: "⚡", label: "Feed" },
-	{ path: "/post/new", icon: "＋", label: "Post", requiresAuth: true },
-	{ path: "/contacts", icon: "👥", label: "People", requiresAuth: true },
+	{ path: "/post/new", icon: "+", label: "Create", requiresAuth: true },
 	{
 		path: "/messages",
 		icon: "💬",
@@ -25,14 +28,6 @@ const NAV_ITEMS: NavItem[] = [
 		requiresAuth: true,
 		badgeKey: "messages"
 	},
-	{
-		path: "/notifications",
-		icon: "🔔",
-		label: "Alerts",
-		requiresAuth: true,
-		badgeKey: "notifications"
-	},
-	{ path: "/bookmarks", icon: "🔖", label: "Saved", requiresAuth: true },
 	{ path: "/profile", icon: "👤", label: "Profile" }
 ];
 
@@ -41,16 +36,23 @@ interface AppLayoutProps {
 }
 
 const AppLayout = ({ children }: AppLayoutProps) => {
+	useGeolocation();
+	usePresenceTracker();
+
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
 	const { isAuthenticated } = useAuthStore();
-	const [unreadMessages, setUnreadMessages] = useState(0);
-	const [unreadNotifs, setUnreadNotifs] = useState(0);
+	const unreadMessages = useInboxStore((state) => state.unreadMessages);
+	const unreadNotifs = useInboxStore((state) => state.unreadNotifications);
+	const setUnreadMessages = useInboxStore((state) => state.setUnreadMessages);
+	const setUnreadNotifications = useInboxStore(
+		(state) => state.setUnreadNotifications
+	);
+	const resetInbox = useInboxStore((state) => state.resetInbox);
 
 	useEffect(() => {
 		if (!isAuthenticated) {
-			setUnreadMessages(0);
-			setUnreadNotifs(0);
+			resetInbox();
 			return;
 		}
 		const fetchCounts = async () => {
@@ -60,15 +62,33 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 					notificationsApi.getUnreadCount()
 				]);
 				setUnreadMessages(msgRes.data.count);
-				setUnreadNotifs(notifRes.data.count);
+				setUnreadNotifications(notifRes.data.count);
 			} catch {
 				// ignore
 			}
 		};
-		fetchCounts();
-		const interval = setInterval(fetchCounts, 15_000);
-		return () => clearInterval(interval);
-	}, [isAuthenticated]);
+		void fetchCounts();
+		const unsubscribe = subscribeRealtime((event) => {
+			if (event.type === "realtime:init") {
+				setUnreadMessages(event.data.messagesUnread);
+				setUnreadNotifications(event.data.notificationsUnread);
+				return;
+			}
+			if (event.type === "messages:unread") {
+				setUnreadMessages(event.data.count);
+				return;
+			}
+			if (event.type === "notifications:unread") {
+				setUnreadNotifications(event.data.count);
+			}
+		});
+		return unsubscribe;
+	}, [
+		isAuthenticated,
+		resetInbox,
+		setUnreadMessages,
+		setUnreadNotifications
+	]);
 
 	const badgeCounts: Record<string, number> = {
 		messages: unreadMessages,
@@ -81,6 +101,18 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 			return;
 		}
 		navigate(item.path);
+	};
+
+	const isNavItemActive = (item: NavItem) => {
+		if (item.path === "/profile") {
+			return (
+				pathname === "/profile" ||
+				pathname.startsWith("/profile/") ||
+				pathname === "/contacts" ||
+				pathname === "/bookmarks"
+			);
+		}
+		return pathname === item.path || pathname.startsWith(item.path + "/");
 	};
 
 	return (
@@ -112,9 +144,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 				}}
 			>
 				{NAV_ITEMS.map((item) => {
-					const isActive =
-						pathname === item.path ||
-						pathname.startsWith(item.path + "/");
+					const isActive = isNavItemActive(item);
 					const badge = item.badgeKey
 						? badgeCounts[item.badgeKey]
 						: 0;
@@ -147,12 +177,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 											lineHeight: 1,
 											fontSize:
 												item.path === "/post/new"
-													? 22
+													? 24
 													: 18,
 											opacity: isActive ? 1 : 0.45,
 											filter:
 												item.path === "/post/new"
-													? "drop-shadow(0 0 8px rgba(108,99,255,0.8))"
+													? "drop-shadow(0 0 10px rgba(108,99,255,0.9))"
 													: "none",
 											color:
 												item.path === "/post/new"

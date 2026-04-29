@@ -1,17 +1,9 @@
-import { useState, useEffect } from "react";
-import {
-	Avatar,
-	Box,
-	Button,
-	Center,
-	Group,
-	Loader,
-	Stack,
-	Text
-} from "@mantine/core";
+import { useState, useEffect, useCallback } from "react";
+import { Box, Button, Center, Group, Loader, Stack, Text } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
 import { notificationsApi, type Notification } from "../api/notifications.api";
+import { subscribeRealtime } from "../realtime/realtime.client";
 
 function timeAgo(dateStr: string): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
@@ -47,7 +39,7 @@ const NotificationsPage = () => {
 	const [notifications, setNotifications] = useState<Notification[]>([]);
 	const [loading, setLoading] = useState(true);
 
-	const load = async () => {
+	const load = useCallback(async () => {
 		setLoading(true);
 		try {
 			const { data } = await notificationsApi.getNotifications();
@@ -55,10 +47,30 @@ const NotificationsPage = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, []);
 
 	useEffect(() => {
-		if (isAuthenticated) load();
+		if (isAuthenticated) {
+			void load();
+		}
+	}, [isAuthenticated, load]);
+
+	useEffect(() => {
+		if (!isAuthenticated) return;
+		return subscribeRealtime((event) => {
+			if (event.type === "notification:new") {
+				setNotifications((prev) => {
+					if (
+						prev.some(
+							(notif) => notif.id === event.data.notification.id
+						)
+					) {
+						return prev;
+					}
+					return [event.data.notification, ...prev];
+				});
+			}
+		});
 	}, [isAuthenticated]);
 
 	const handleMarkRead = async (id: number) => {

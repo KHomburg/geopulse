@@ -5,6 +5,7 @@ import {
 	openConversation,
 	getMessages,
 	sendMessage,
+	sendTyping,
 	markRead,
 	getUnreadCount
 } from "./message.controller";
@@ -18,6 +19,7 @@ MessageRouter.get("/unread", getUnreadCount);
 MessageRouter.post("/with/:userId", openConversation);
 MessageRouter.get("/:conversationId/messages", getMessages);
 MessageRouter.post("/:conversationId/messages", sendMessage);
+MessageRouter.post("/:conversationId/typing", sendTyping);
 MessageRouter.patch("/:conversationId/read", markRead);
 
 export { MessageRouter };

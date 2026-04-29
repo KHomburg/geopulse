@@ -7,6 +7,8 @@ import {
 	UpdateUserEmailSchema,
 	UserParamsSchema
 } from "./user.schemas";
+import { z } from "zod";
+import { PERK_KEYS } from "./user.perks";
 
 // TODO: add authentication middleware
 
@@ -23,6 +25,59 @@ export const GetUser = async (
 	} catch (error: unknown) {
 		console.error(error);
 		return res.status(500).json({ message: "Internal server error" });
+	}
+};
+
+const PurchasePerkSchema = z.object({
+	key: z.enum(PERK_KEYS)
+});
+
+export const GetMe = async (req: Request, res: Response): Promise<Response> => {
+	try {
+		const user = await UserService.getMe(Number(req.id));
+		if (!user) return res.status(404).json({ message: "User not found" });
+		return res.status(200).json(user);
+	} catch (error: unknown) {
+		console.error(error);
+		return res.status(500).json({ message: "Internal server error" });
+	}
+};
+
+export const GetPerkCatalog = async (
+	req: Request,
+	res: Response
+): Promise<Response> => {
+	try {
+		const data = await UserService.getPerkCatalog(Number(req.id));
+		return res.status(200).json({ data });
+	} catch (error: unknown) {
+		const status =
+			typeof error === "object" && error !== null && "status" in error
+				? Number((error as { status?: number }).status ?? 500)
+				: 500;
+		const message =
+			error instanceof Error ? error.message : "Internal server error";
+		return res.status(status).json({ message });
+	}
+};
+
+export const PurchasePerk = async (
+	req: Request,
+	res: Response
+): Promise<Response> => {
+	try {
+		const { key } = PurchasePerkSchema.parse(req.body);
+		const user = await UserService.purchasePerk(Number(req.id), key);
+		if (!user) return res.status(404).json({ message: "User not found" });
+		return res.status(200).json(user);
+	} catch (error: unknown) {
+		const status =
+			typeof error === "object" && error !== null && "status" in error
+				? Number((error as { status?: number }).status ?? 500)
+				: 500;
+		const message =
+			error instanceof Error ? error.message : "Internal server error";
+		return res.status(status).json({ message });
 	}
 };
 

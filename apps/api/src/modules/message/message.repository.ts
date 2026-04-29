@@ -52,7 +52,27 @@ export const MessageRepository = {
 		senderId: number,
 		content: string
 	): Promise<Message> {
-		return Message.create({ conversationId, senderId, content });
+		const message = await Message.create({
+			conversationId,
+			senderId,
+			content
+		});
+		return (
+			(await Message.findByPk(message.id, {
+				include: [
+					{
+						model: User,
+						as: "sender",
+						attributes: [
+							"id",
+							"username",
+							"displayName",
+							"avatarUrl"
+						]
+					}
+				]
+			})) ?? message
+		);
 	},
 
 	async getMessages(
@@ -130,6 +150,14 @@ export const MessageRepository = {
 			where: { conversationId, userId }
 		});
 		return p !== null;
+	},
+
+	async getParticipantUserIds(conversationId: number): Promise<number[]> {
+		const participants = await ConversationParticipant.findAll({
+			where: { conversationId },
+			attributes: ["userId"]
+		});
+		return participants.map((participant) => participant.userId);
 	},
 
 	async markAsRead(conversationId: number, userId: number): Promise<void> {

@@ -11,6 +11,10 @@ import MessagesPage from "./pages/MessagesPage";
 import ConversationPage from "./pages/ConversationPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import BookmarksPage from "./pages/BookmarksPage";
+import KarmaShopPage from "./pages/KarmaShopPage";
+import TrustedLocalsPage from "./pages/TrustedLocalsPage";
+import GhostModePage from "./pages/GhostModePage";
+import LiveLoungePage from "./pages/LiveLoungePage";
 import { useAuthStore } from "./store/auth.store";
 
 const App = () => {
@@ -91,6 +95,46 @@ const App = () => {
 								}
 							/>
 							<Route path="profile" element={<ProfilePage />} />
+							<Route
+								path="profile/karmashop"
+								element={
+									isAuthenticated ? (
+										<KarmaShopPage />
+									) : (
+										<Navigate to="/login" replace />
+									)
+								}
+							/>
+							<Route
+								path="profile/trusted-locals"
+								element={
+									isAuthenticated ? (
+										<TrustedLocalsPage />
+									) : (
+										<Navigate to="/login" replace />
+									)
+								}
+							/>
+							<Route
+								path="profile/ghost-mode"
+								element={
+									isAuthenticated ? (
+										<GhostModePage />
+									) : (
+										<Navigate to="/login" replace />
+									)
+								}
+							/>
+							<Route
+								path="lounges/:roomKey"
+								element={
+									isAuthenticated ? (
+										<LiveLoungePage />
+									) : (
+										<Navigate to="/login" replace />
+									)
+								}
+							/>
 							<Route
 								path="*"
 								element={<Navigate to="/map" replace />}

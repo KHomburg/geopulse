@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { postsApi, Post, HotspotCluster, TimeFilter } from "../api/posts.api";
+import { activityApi, type ActivityHeatPoint } from "../api/activity.api";
 
 interface LocationState {
 	lat: number | null;
@@ -9,19 +10,24 @@ interface LocationState {
 interface FeedState {
 	posts: Post[];
 	hotspots: HotspotCluster[];
+	activityHeatmap: ActivityHeatPoint[];
 	location: LocationState;
 	filter: TimeFilter;
+	selectedTags: string[];
 	radiusKm: number;
 	isLoadingFeed: boolean;
 	isLoadingHotspots: boolean;
+	isLoadingActivityHeatmap: boolean;
 	feedError: string | null;
 	hasMore: boolean;
 
 	setLocation: (lat: number, lng: number) => void;
 	setFilter: (filter: TimeFilter) => void;
+	setTags: (tags: string[]) => void;
 	setRadius: (km: number) => void;
 	loadFeed: (reset?: boolean) => Promise<void>;
 	loadHotspots: () => Promise<void>;
+	loadActivityHeatmap: () => Promise<void>;
 	votePost: (postId: number, value: 1 | -1) => Promise<void>;
 	removeVote: (postId: number) => Promise<void>;
 	addPost: (post: Post) => void;
@@ -31,11 +37,14 @@ interface FeedState {
 export const useFeedStore = create<FeedState>((set, get) => ({
 	posts: [],
 	hotspots: [],
+	activityHeatmap: [],
 	location: { lat: null, lng: null },
 	filter: "today",
+	selectedTags: [],
 	radiusKm: 10,
 	isLoadingFeed: false,
 	isLoadingHotspots: false,
+	isLoadingActivityHeatmap: false,
 	feedError: null,
 	hasMore: true,
 
@@ -47,12 +56,16 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 		set({ filter, posts: [], hasMore: true });
 	},
 
+	setTags: (tags) => {
+		set({ selectedTags: tags, posts: [], hasMore: true });
+	},
+
 	setRadius: (km) => {
 		set({ radiusKm: km, posts: [], hasMore: true });
 	},
 
 	loadFeed: async (reset = false) => {
-		const { location, filter, radiusKm, posts } = get();
+		const { location, filter, radiusKm, posts, selectedTags } = get();
 		if (!location.lat || !location.lng) return;
 
 		set({ isLoadingFeed: true, feedError: null });
@@ -65,6 +78,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 				lng: location.lng,
 				radiusKm,
 				filter,
+				tags: selectedTags,
 				limit: 20,
 				offset
 			});
@@ -93,6 +107,26 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 			set({ hotspots: data.data, isLoadingHotspots: false });
 		} catch {
 			set({ isLoadingHotspots: false });
+		}
+	},
+
+	loadActivityHeatmap: async () => {
+		const { location, radiusKm } = get();
+		if (!location.lat || !location.lng) return;
+
+		set({ isLoadingActivityHeatmap: true });
+		try {
+			const { data } = await activityApi.getHeatmap({
+				lat: location.lat,
+				lng: location.lng,
+				radiusKm: Math.min(radiusKm * 1.5, 20)
+			});
+			set({
+				activityHeatmap: data.data,
+				isLoadingActivityHeatmap: false
+			});
+		} catch {
+			set({ isLoadingActivityHeatmap: false });
 		}
 	},
 

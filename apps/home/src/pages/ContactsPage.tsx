@@ -5,14 +5,12 @@ import {
 	Box,
 	Button,
 	Center,
-	Divider,
 	Group,
 	Loader,
 	Stack,
 	Tabs,
 	Text,
-	TextInput,
-	UnstyledButton
+	TextInput
 } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
@@ -82,13 +80,6 @@ const ContactsPage = () => {
 	const handleDecline = async (contactId: number) => {
 		await contactsApi.declineOrRemove(contactId);
 		await load();
-	};
-
-	const handleMessage = async (user: ContactUser) => {
-		const { data: conversation } = await import("../api/messages.api").then(
-			(m) => m.messagesApi.openConversation(user.id)
-		);
-		navigate(`/messages/${conversation.id}`);
 	};
 
 	const handleSearch = (q: string) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
 	Avatar,
 	Box,
@@ -12,6 +12,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
 import { messagesApi, type Message } from "../api/messages.api";
+import { subscribeRealtime } from "../realtime/realtime.client";
 
 function timeAgo(dateStr: string): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
@@ -32,10 +33,13 @@ const ConversationPage = () => {
 	const [loading, setLoading] = useState(true);
 	const [content, setContent] = useState("");
 	const [sending, setSending] = useState(false);
+	const [typingUserId, setTypingUserId] = useState<number | null>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
+	const typingClearRef = useRef<number | null>(null);
+	const lastTypingSentAtRef = useRef(0);
 	const convId = Number(conversationId);
 
-	const loadMessages = async () => {
+	const loadMessages = useCallback(async () => {
 		if (!convId) return;
 		try {
 			const { data } = await messagesApi.getMessages(convId);
@@ -45,15 +49,65 @@ const ConversationPage = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [convId]);
 
 	useEffect(() => {
 		if (!isAuthenticated) return;
-		loadMessages();
-		// Poll every 5 seconds for new messages
-		const interval = setInterval(loadMessages, 5000);
-		return () => clearInterval(interval);
-	}, [isAuthenticated, convId]);
+		void loadMessages();
+	}, [isAuthenticated, loadMessages]);
+
+	useEffect(() => {
+		if (!isAuthenticated || !convId) return;
+
+		return subscribeRealtime((event) => {
+			if (
+				event.type === "message:new" &&
+				event.data.conversationId === convId
+			) {
+				setMessages((prev) => {
+					if (
+						prev.some(
+							(message) => message.id === event.data.message.id
+						)
+					) {
+						return prev;
+					}
+					return [...prev, event.data.message];
+				});
+				if (event.data.message.senderId !== userId) {
+					void messagesApi.markRead(convId);
+				}
+				return;
+			}
+
+			if (
+				event.type === "message:typing" &&
+				event.data.conversationId === convId &&
+				event.data.userId !== userId
+			) {
+				setTypingUserId(event.data.userId);
+				if (typingClearRef.current !== null) {
+					window.clearTimeout(typingClearRef.current);
+				}
+				const timeoutMs = Math.max(
+					500,
+					new Date(event.data.expiresAt).getTime() - Date.now()
+				);
+				typingClearRef.current = window.setTimeout(() => {
+					setTypingUserId(null);
+					typingClearRef.current = null;
+				}, timeoutMs);
+			}
+		});
+	}, [convId, isAuthenticated, userId]);
+
+	useEffect(() => {
+		return () => {
+			if (typingClearRef.current !== null) {
+				window.clearTimeout(typingClearRef.current);
+			}
+		};
+	}, []);
 
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -68,11 +122,27 @@ const ConversationPage = () => {
 				convId,
 				trimmed
 			);
-			setMessages((prev) => [...prev, msg]);
+			setMessages((prev) => {
+				if (prev.some((message) => message.id === msg.id)) {
+					return prev;
+				}
+				return [...prev, msg];
+			});
 			setContent("");
 		} finally {
 			setSending(false);
 		}
+	};
+
+	const handleContentChange = (nextValue: string) => {
+		setContent(nextValue);
+		if (!convId || !nextValue.trim()) return;
+
+		const now = Date.now();
+		if (now - lastTypingSentAtRef.current < 1_500) return;
+
+		lastTypingSentAtRef.current = now;
+		void messagesApi.sendTyping(convId);
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -205,6 +275,11 @@ const ConversationPage = () => {
 						);
 					})
 				)}
+				{typingUserId !== null && (
+					<Text c="dimmed" size="xs" mt={8}>
+						User is typing...
+					</Text>
+				)}
 				<div ref={bottomRef} />
 			</Box>
 
@@ -221,7 +296,9 @@ const ConversationPage = () => {
 						style={{ flex: 1 }}
 						placeholder="Type a message…"
 						value={content}
-						onChange={(e) => setContent(e.currentTarget.value)}
+						onChange={(e) =>
+							handleContentChange(e.currentTarget.value)
+						}
 						onKeyDown={handleKeyDown}
 						styles={{
 							input: {

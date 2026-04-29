@@ -34,8 +34,10 @@
 		"typescript": "^4.9.5"
 	},
 	"scripts": {
-		"start": "nodemon ./src/index.ts",
-		"dev": "nodemon ./src/index.ts",
+		"prestart": "node ./scripts/cleanup-dev-processes.js",
+		"start": "nodemon --signal SIGTERM --exitcrash ./src/index.ts",
+		"predev": "node ./scripts/cleanup-dev-processes.js",
+		"dev": "nodemon --signal SIGTERM --exitcrash ./src/index.ts",
 		"build": "tsc",
 		"test": "cross-env NODE_ENV=test jest",
 		"lint": "npx eslint .",

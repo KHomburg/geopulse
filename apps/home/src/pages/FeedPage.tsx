@@ -4,6 +4,7 @@ import {
 	Avatar,
 	Badge,
 	Box,
+	Button,
 	Center,
 	Group,
 	Loader,
@@ -14,12 +15,15 @@ import {
 	Textarea,
 	Divider
 } from "@mantine/core";
+import { useNavigate } from "react-router-dom";
 import { useFeedStore } from "../store/feed.store";
 import { useAuthStore } from "../store/auth.store";
 import { postsApi, type Post } from "../api/posts.api";
 import { commentsApi, type Comment } from "../api/comments.api";
 import { bookmarksApi } from "../api/bookmarks.api";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { useInboxStore } from "../store/inbox.store";
+import { POST_TAGS, type PostTagKey } from "../constants/postTags";
 
 const FILTER_OPTIONS = [
 	{ value: "now", label: "Last hour" },
@@ -204,10 +208,20 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 						color="violet"
 						style={{ background: "#2a2a2a", flexShrink: 0 }}
 					>
-						{post.anonymityMode === "anonymous" ? "?" : "●"}
+						{post.anonymityMode === "anonymous"
+							? "?"
+							: post.authorPinAvatar ??
+							  (post.postType === "drop" ? "🎁" : "📍")}
 					</Avatar>
 					<Stack gap={0}>
-						<Text size="sm" fw={600} style={{ lineHeight: 1.3 }}>
+						<Text
+							size="sm"
+							fw={600}
+							style={{
+								lineHeight: 1.3,
+								color: post.authorNameColor ?? "#f0f0f0"
+							}}
+						>
 							{authorLabel(post)}
 						</Text>
 						<Text size="xs" c="dimmed">
@@ -235,6 +249,26 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 							Story
 						</Badge>
 					)}
+					{post.postType === "drop" && (
+						<Badge
+							variant="filled"
+							color="teal"
+							size="xs"
+							radius="sm"
+						>
+							Drop
+						</Badge>
+					)}
+					{post.isSuperLocalLegend && (
+						<Badge
+							variant="filled"
+							color="yellow"
+							size="xs"
+							radius="sm"
+						>
+							Super
+						</Badge>
+					)}
 				</Group>
 			</Group>
 
@@ -248,6 +282,30 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 			>
 				{post.content}
 			</Text>
+			{post.isLocked && (
+				<Text size="xs" c="dimmed" mb={12}>
+					Hint: {post.previewContent}
+				</Text>
+			)}
+			{post.tags.length > 0 && (
+				<Group gap={6} mb={12}>
+					{post.tags.map((tag) => {
+						const tagDef = POST_TAGS.find(
+							(item) => item.key === tag
+						);
+						return (
+							<Badge
+								key={tag}
+								variant="outline"
+								color="gray"
+								size="xs"
+							>
+								{tagDef?.icon ?? "#"} {tagDef?.label ?? tag}
+							</Badge>
+						);
+					})}
+				</Group>
+			)}
 
 			<Group justify="space-between" align="center" mt={4}>
 				<Group gap={6} wrap="nowrap">
@@ -415,10 +473,16 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 };
 
 const FeedPage = () => {
+	const navigate = useNavigate();
+	const unreadNotifications = useInboxStore(
+		(state) => state.unreadNotifications
+	);
 	const {
 		posts,
 		filter,
+		selectedTags,
 		setFilter,
+		setTags,
 		loadFeed,
 		isLoadingFeed,
 		hasMore,
@@ -436,9 +500,17 @@ const FeedPage = () => {
 		[setFilter]
 	);
 
+	const toggleTag = (tag: PostTagKey) => {
+		if (selectedTags.includes(tag)) {
+			setTags(selectedTags.filter((item) => item !== tag));
+			return;
+		}
+		setTags([...selectedTags, tag]);
+	};
+
 	useEffect(() => {
 		if (location.lat && location.lng) loadFeed(true);
-	}, [location, filter, loadFeed]);
+	}, [location, filter, selectedTags, loadFeed]);
 
 	useEffect(() => {
 		const el = bottomRef.current;
@@ -478,13 +550,72 @@ const FeedPage = () => {
 					<Text fw={700} size="md" style={{ color: "#f0f0f0" }}>
 						Pulse Feed
 					</Text>
-					<Select
-						data={FILTER_OPTIONS}
-						value={filter}
-						onChange={handleFilterChange}
-						size="xs"
-						style={{ width: 110 }}
-					/>
+					<Group gap={8} wrap="nowrap">
+						<Select
+							data={FILTER_OPTIONS}
+							value={filter}
+							onChange={handleFilterChange}
+							size="xs"
+							style={{ width: 110 }}
+						/>
+						<Box style={{ position: "relative" }}>
+							<ActionIcon
+								variant="subtle"
+								radius="xl"
+								size="lg"
+								onClick={() => navigate("/notifications")}
+								style={{
+									color: "#f0f0f0",
+									background: "rgba(255,255,255,0.04)"
+								}}
+							>
+								🔔
+							</ActionIcon>
+							{unreadNotifications > 0 && (
+								<Box
+									style={{
+										position: "absolute",
+										top: -3,
+										right: -2,
+										minWidth: 16,
+										height: 16,
+										padding: "0 4px",
+										borderRadius: 999,
+										background: "#ff6584",
+										color: "#fff",
+										fontSize: 10,
+										fontWeight: 700,
+										display: "flex",
+										alignItems: "center",
+										justifyContent: "center"
+									}}
+								>
+									{Math.min(unreadNotifications, 99)}
+								</Box>
+							)}
+						</Box>
+					</Group>
+				</Group>
+				<Group
+					gap={8}
+					mt={10}
+					wrap="nowrap"
+					style={{ overflowX: "auto" }}
+				>
+					{POST_TAGS.map((tag) => {
+						const selected = selectedTags.includes(tag.key);
+						return (
+							<Button
+								key={tag.key}
+								size="compact-xs"
+								variant={selected ? "filled" : "subtle"}
+								color={selected ? "violet" : "gray"}
+								onClick={() => toggleTag(tag.key)}
+							>
+								{tag.icon} {tag.label}
+							</Button>
+						);
+					})}
 				</Group>
 			</Box>
 

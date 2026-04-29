@@ -1,5 +1,6 @@
 import { Op } from "sequelize";
 import User from "./user.model";
+import { TRUSTED_LOCALS_MIN_KARMA } from "./user.perks";
 
 export const UserRepository = {
 	async findAll() {
@@ -8,6 +9,11 @@ export const UserRepository = {
 
 	async findById(id: string | number) {
 		return User.findOne({ where: { id } });
+	},
+
+	async findByIds(ids: number[]) {
+		if (!ids.length) return [];
+		return User.findAll({ where: { id: { [Op.in]: ids } } });
 	},
 
 	async search(query: string, limit = 20): Promise<User[]> {
@@ -37,6 +43,37 @@ export const UserRepository = {
 		const user = await User.findByPk(id);
 		if (!user) return null;
 		return user.update({ email });
+	},
+
+	async incrementKarma(id: string | number, delta: number) {
+		const user = await User.findByPk(id);
+		if (!user) return null;
+		await user.increment("karmaScore", { by: delta });
+		await user.reload();
+		return user;
+	},
+
+	async syncTrustedStatus(id: string | number) {
+		const user = await User.findByPk(id);
+		if (!user) return null;
+		const shouldBeTrusted = user.karmaScore >= TRUSTED_LOCALS_MIN_KARMA;
+		if (user.isTrusted !== shouldBeTrusted) {
+			await user.update({ isTrusted: shouldBeTrusted });
+		}
+		return user;
+	},
+
+	async findTrustedUserIds(minKarma = TRUSTED_LOCALS_MIN_KARMA) {
+		const users = await User.findAll({
+			where: {
+				[Op.or]: [
+					{ isTrusted: true },
+					{ karmaScore: { [Op.gte]: minKarma } }
+				]
+			},
+			attributes: ["id"]
+		});
+		return users.map((user) => user.id);
 	},
 
 	async deleteById(id: string | number) {

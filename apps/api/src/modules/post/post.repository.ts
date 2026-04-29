@@ -1,7 +1,9 @@
-import { Op, Sequelize } from "sequelize";
+import { Op, Sequelize, type FindAttributeOptions } from "sequelize";
 import Post from "./post.model";
 import Comment from "../comment/comment.model";
 import type { AnonymityMode } from "./post.model";
+import User from "../user/user.model";
+import { TRUSTED_LOCALS_MIN_KARMA } from "../user/user.perks";
 
 export interface CreatePostPayload {
 	userId: number;
@@ -11,33 +13,75 @@ export interface CreatePostPayload {
 	pseudonym?: string | null;
 	obfuscatedLat: number;
 	obfuscatedLng: number;
+	postType?: "standard" | "drop";
+	tags?: string | null;
+	dropHint?: string | null;
+	dropUnlockRadiusMeters?: number | null;
+	boostedUntil?: Date | null;
 	isStory: boolean;
 	expiresAt?: Date | null;
 }
 
-function timeFilterToDate(filter: "now" | "today" | "week"): Date {
-	const now = new Date();
-	if (filter === "now") {
-		now.setHours(now.getHours() - 1);
-	} else if (filter === "today") {
-		now.setHours(0, 0, 0, 0);
-	} else {
-		now.setDate(now.getDate() - 7);
-	}
-	return now;
+const AUTHOR_ATTRS = [
+	"id",
+	"username",
+	"displayName",
+	"avatarUrl",
+	"karmaScore",
+	"isTrusted",
+	"pinAvatar",
+	"usernameColor"
+];
+
+function commentCountAttributes() {
+	return {
+		include: [
+			[
+				Sequelize.literal(
+					`(SELECT COUNT(*) FROM \`comment\` WHERE \`comment\`.\`postId\` = \`Post\`.\`id\` AND \`comment\`.\`deletedAt\` IS NULL)`
+				),
+				"commentCount"
+			]
+		]
+	} as FindAttributeOptions;
 }
 
 export const PostRepository = {
 	async create(payload: CreatePostPayload): Promise<Post> {
-		return Post.create(payload as unknown as Record<string, unknown>);
+		return Post.create({
+			postType: "standard",
+			...payload
+		} as unknown as Record<string, unknown>);
 	},
 
 	async findById(id: number): Promise<Post | null> {
-		return Post.findOne({ where: { id, isActive: true } });
+		return Post.findOne({
+			where: { id, isActive: true },
+			attributes: commentCountAttributes(),
+			include: [
+				{
+					model: User,
+					as: "author",
+					attributes: AUTHOR_ATTRS,
+					required: false
+				}
+			]
+		});
 	},
 
 	async findByIdForOwner(id: number, userId: number): Promise<Post | null> {
-		return Post.findOne({ where: { id, userId } });
+		return Post.findOne({
+			where: { id, userId },
+			attributes: commentCountAttributes(),
+			include: [
+				{
+					model: User,
+					as: "author",
+					attributes: AUTHOR_ATTRS,
+					required: false
+				}
+			]
+		});
 	},
 
 	async findByLocation(params: {
@@ -48,6 +92,7 @@ export const PostRepository = {
 		since: Date;
 		limit: number;
 		offset: number;
+		trustedOnly?: boolean;
 	}): Promise<Post[]> {
 		return Post.findAll({
 			where: {
@@ -56,17 +101,37 @@ export const PostRepository = {
 				obfuscatedLng: { [Op.between]: [params.minLng, params.maxLng] },
 				createdAt: { [Op.gte]: params.since }
 			},
-			attributes: {
-				include: [
-					[
-						Sequelize.literal(
-							`(SELECT COUNT(*) FROM \`comment\` WHERE \`comment\`.\`postId\` = \`Post\`.\`id\` AND \`comment\`.\`deletedAt\` IS NULL)`
-						),
-						"commentCount"
-					]
-				]
-			},
+			attributes: commentCountAttributes(),
+			include: [
+				{
+					model: User,
+					as: "author",
+					attributes: AUTHOR_ATTRS,
+					required: params.trustedOnly ?? false,
+					where:
+						params.trustedOnly === true
+							? {
+									[Op.or]: [
+										{ isTrusted: true },
+										{
+											karmaScore: {
+												[Op.gte]:
+													TRUSTED_LOCALS_MIN_KARMA
+											}
+										}
+									]
+							  }
+							: undefined
+				}
+			],
 			order: [
+				[
+					Sequelize.literal(
+						"CASE WHEN `Post`.`boostedUntil` IS NOT NULL AND `Post`.`boostedUntil` > CURRENT_TIMESTAMP THEN 0 ELSE 1 END"
+					),
+					"ASC"
+				],
+				["boostedUntil", "DESC"],
 				["karmaScore", "DESC"],
 				["createdAt", "DESC"]
 			],

@@ -6,13 +6,25 @@ export type TimeFilter = "now" | "today" | "week";
 export interface Post {
 	id: number;
 	content: string;
+	previewContent: string;
 	mediaUrl: string | null;
 	anonymityMode: AnonymityMode;
 	authorId: number | null;
 	authorPseudonym: string | null;
+	authorPinAvatar: string | null;
+	authorNameColor: string | null;
+	authorKarma: number;
+	authorTrusted: boolean;
 	lat: number;
 	lng: number;
 	karmaScore: number;
+	postType: "standard" | "drop";
+	tags: string[];
+	dropHint: string | null;
+	dropUnlockRadiusMeters: number | null;
+	boostedUntil: string | null;
+	isSuperLocalLegend: boolean;
+	isLocked: boolean;
 	isStory: boolean;
 	expiresAt: string | null;
 	createdAt: string;
@@ -33,6 +45,7 @@ export interface FeedParams {
 	lng: number;
 	radiusKm?: number;
 	filter?: TimeFilter;
+	tags?: string[];
 	limit?: number;
 	offset?: number;
 }
@@ -42,6 +55,11 @@ export interface CreatePostPayload {
 	mediaUrl?: string;
 	anonymityMode: AnonymityMode;
 	pseudonym?: string;
+	postType: "standard" | "drop";
+	tags?: string[];
+	dropHint?: string;
+	dropUnlockRadiusMeters?: number;
+	isSuperLocalLegend?: boolean;
 	lat: number;
 	lng: number;
 	isStory?: boolean;
@@ -49,17 +67,32 @@ export interface CreatePostPayload {
 
 export const postsApi = {
 	getFeed(params: FeedParams) {
+		const query = {
+			...params,
+			tags: params.tags?.length ? params.tags.join(",") : undefined
+		};
 		return apiClient.get<{ data: Post[]; count: number }>("/posts", {
-			params
+			params: query
 		});
 	},
 
-	getPost(id: number) {
-		return apiClient.get<Post>(`/posts/${id}`);
+	getPost(id: number, params?: { lat?: number; lng?: number }) {
+		return apiClient.get<Post>(`/posts/${id}`, { params });
 	},
 
 	createPost(payload: CreatePostPayload) {
 		return apiClient.post<Post>("/posts", payload);
+	},
+
+	getTrustedFeed(params: FeedParams) {
+		const query = {
+			...params,
+			tags: params.tags?.length ? params.tags.join(",") : undefined
+		};
+		return apiClient.get<{ data: Post[]; count: number }>(
+			"/posts/trusted-locals",
+			{ params: query }
+		);
 	},
 
 	deletePost(id: number) {

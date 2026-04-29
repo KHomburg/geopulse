@@ -9,6 +9,8 @@ import Message from "../../modules/message/message.model";
 import Notification from "../../modules/notification/notification.model";
 import Comment from "../../modules/comment/comment.model";
 import Bookmark from "../../modules/bookmark/bookmark.model";
+import GhostShare from "../../modules/ghost/ghostShare.model";
+import RoomMessage from "../../modules/room/roomMessage.model";
 
 // User <-> RefreshToken
 User.hasMany(RefreshToken, { foreignKey: "userId", as: "refreshTokens" });
@@ -86,3 +88,11 @@ User.hasMany(Bookmark, { foreignKey: "userId", as: "bookmarks" });
 Bookmark.belongsTo(User, { foreignKey: "userId", as: "user" });
 Post.hasMany(Bookmark, { foreignKey: "postId", as: "bookmarks" });
 Bookmark.belongsTo(Post, { foreignKey: "postId", as: "post" });
+
+// Ghost sharing
+User.hasOne(GhostShare, { foreignKey: "userId", as: "ghostShare" });
+GhostShare.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+// Room messages
+User.hasMany(RoomMessage, { foreignKey: "userId", as: "roomMessages" });
+RoomMessage.belongsTo(User, { foreignKey: "userId", as: "author" });

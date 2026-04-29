@@ -15,7 +15,11 @@ import { VoteRouter } from "../../modules/vote/vote.routes";
 import { ContactRouter } from "../../modules/contact/contact.routes";
 import { MessageRouter } from "../../modules/message/message.routes";
 import { NotificationRouter } from "../../modules/notification/notification.routes";
+import { RealtimeRouter } from "../../modules/realtime/realtime.routes";
 import { CommentRouter } from "../../modules/comment/comment.routes";
+import { ActivityRouter } from "../../modules/activity/activity.routes";
+import { GhostRouter } from "../../modules/ghost/ghost.routes";
+import { RoomRouter } from "../../modules/room/room.routes";
 import {
 	BookmarkRouter,
 	MyBookmarksRouter
@@ -39,7 +43,16 @@ App.use(morgan("dev"));
 App.use(globalLimiter);
 
 // Compress Bundle
-App.use(compression());
+App.use(
+	compression({
+		filter: (req, res) => {
+			if (req.headers.accept?.includes("text/event-stream")) {
+				return false;
+			}
+			return compression.filter(req, res);
+		}
+	})
+);
 
 // Middle for protection in vulnerabilities
 App.use(helmet());
@@ -104,6 +117,14 @@ App.use("/api/v1/conversations", MessageRouter);
 
 // Notifications
 App.use("/api/v1/notifications", NotificationRouter);
+
+// Realtime stream
+App.use("/api/v1/realtime", RealtimeRouter);
+
+// Activity, ghost sharing, and rooms
+App.use("/api/v1/activity", ActivityRouter);
+App.use("/api/v1/ghost", GhostRouter);
+App.use("/api/v1/rooms", RoomRouter);
 
 //#endregion
 // 404 and Error handlers

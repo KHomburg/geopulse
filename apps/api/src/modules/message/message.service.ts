@@ -1,4 +1,5 @@
 import { MessageRepository } from "./message.repository";
+import { RealtimeService } from "../realtime/realtime.service";
 
 const MessageService = {
 	async getOrCreateConversation(userA: number, userB: number) {
@@ -33,6 +34,23 @@ const MessageService = {
 			{ updatedAt: new Date() },
 			{ where: { id: conversationId } }
 		);
+		const participantIds = await MessageRepository.getParticipantUserIds(
+			conversationId
+		);
+		RealtimeService.sendToUsers(participantIds, "message:new", {
+			conversationId,
+			message
+		});
+		await Promise.all(
+			participantIds.map(async (participantId) => {
+				const count = await MessageRepository.countUnread(
+					participantId
+				);
+				RealtimeService.sendToUser(participantId, "messages:unread", {
+					count
+				});
+			})
+		);
 		return message;
 	},
 
@@ -64,7 +82,31 @@ const MessageService = {
 		if (!isParticipant) {
 			throw Object.assign(new Error("Forbidden"), { status: 403 });
 		}
-		return MessageRepository.markAsRead(conversationId, userId);
+		await MessageRepository.markAsRead(conversationId, userId);
+		const count = await MessageRepository.countUnread(userId);
+		RealtimeService.sendToUser(userId, "messages:unread", { count });
+	},
+
+	async sendTypingIndicator(conversationId: number, userId: number) {
+		const isParticipant = await MessageRepository.isParticipant(
+			conversationId,
+			userId
+		);
+		if (!isParticipant) {
+			throw Object.assign(new Error("Forbidden"), { status: 403 });
+		}
+		const participantIds = await MessageRepository.getParticipantUserIds(
+			conversationId
+		);
+		RealtimeService.sendToUsers(
+			participantIds.filter((participantId) => participantId !== userId),
+			"message:typing",
+			{
+				conversationId,
+				userId,
+				expiresAt: new Date(Date.now() + 3_000).toISOString()
+			}
+		);
 	},
 
 	async getUnreadCount(userId: number) {

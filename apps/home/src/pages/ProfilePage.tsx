@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import {
+	ActionIcon,
+	Badge,
 	Box,
 	Button,
 	Center,
@@ -10,10 +13,28 @@ import {
 } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
+import { userApi, type CurrentUser } from "../api/user.api";
+
+const profileMenuCardStyle = {
+	background: "#141414",
+	border: "1px solid #2a2a2a",
+	borderRadius: 12,
+	padding: "12px 16px",
+	cursor: "pointer"
+} as const;
 
 const ProfilePage = () => {
 	const { email, userId, isAuthenticated, logout } = useAuthStore();
 	const navigate = useNavigate();
+	const [profile, setProfile] = useState<CurrentUser | null>(null);
+
+	useEffect(() => {
+		if (!isAuthenticated) return;
+		userApi
+			.getMe()
+			.then(({ data }) => setProfile(data))
+			.catch(() => setProfile(null));
+	}, [isAuthenticated]);
 
 	if (!isAuthenticated) {
 		return (
@@ -85,12 +106,187 @@ const ProfilePage = () => {
 					<Text c="dimmed" size="sm">
 						User #{userId}
 					</Text>
+					<Group gap={8} mt={6}>
+						<Badge color="yellow" variant="light">
+							{profile?.karmaScore ?? 0} karma
+						</Badge>
+						<Badge
+							color={profile?.isTrusted ? "green" : "gray"}
+							variant="light"
+						>
+							{profile?.isTrusted
+								? "Trusted Local"
+								: "Local in progress"}
+						</Badge>
+					</Group>
 				</Stack>
 			</Stack>
 
 			<Divider color="#2a2a2a" mb={24} />
 
 			<Stack gap="xs">
+				<Text
+					size="xs"
+					c="dimmed"
+					fw={600}
+					style={{ textTransform: "uppercase", letterSpacing: 0.5 }}
+					mb={8}
+				>
+					Momentum
+				</Text>
+
+				<Box
+					style={profileMenuCardStyle}
+					onClick={() => navigate("/profile/karmashop")}
+				>
+					<Group justify="space-between" wrap="nowrap">
+						<Group gap={12} wrap="nowrap">
+							<ActionIcon
+								variant="light"
+								color="yellow"
+								radius="xl"
+							>
+								✦
+							</ActionIcon>
+							<Box>
+								<Text size="sm" fw={600}>
+									Karma Shop
+								</Text>
+								<Text size="xs" c="dimmed">
+									Spend karma on map pin perks and super-post
+									boosts
+								</Text>
+							</Box>
+						</Group>
+						<Text c="dimmed" size="sm">
+							›
+						</Text>
+					</Group>
+				</Box>
+
+				<Box
+					style={profileMenuCardStyle}
+					onClick={() => navigate("/profile/trusted-locals")}
+				>
+					<Group justify="space-between" wrap="nowrap">
+						<Group gap={12} wrap="nowrap">
+							<ActionIcon
+								variant="light"
+								color="green"
+								radius="xl"
+							>
+								🛡
+							</ActionIcon>
+							<Box>
+								<Text size="sm" fw={600}>
+									Trusted Locals
+								</Text>
+								<Text size="xs" c="dimmed">
+									Enter the 500+ karma feed and private room
+								</Text>
+							</Box>
+						</Group>
+						<Text c="dimmed" size="sm">
+							›
+						</Text>
+					</Group>
+				</Box>
+
+				<Box
+					style={profileMenuCardStyle}
+					onClick={() => navigate("/profile/ghost-mode")}
+				>
+					<Group justify="space-between" wrap="nowrap">
+						<Group gap={12} wrap="nowrap">
+							<ActionIcon
+								variant="light"
+								color="gray"
+								radius="xl"
+							>
+								👻
+							</ActionIcon>
+							<Box>
+								<Text size="sm" fw={600}>
+									Ghost Mode
+								</Text>
+								<Text size="xs" c="dimmed">
+									Share a fuzzy live pin with accepted friends
+									for a set time
+								</Text>
+							</Box>
+						</Group>
+						<Text c="dimmed" size="sm">
+							›
+						</Text>
+					</Group>
+				</Box>
+
+				<Text
+					size="xs"
+					c="dimmed"
+					fw={600}
+					style={{ textTransform: "uppercase", letterSpacing: 0.5 }}
+					mb={8}
+				>
+					Your space
+				</Text>
+
+				<Box
+					style={profileMenuCardStyle}
+					onClick={() => navigate("/contacts")}
+				>
+					<Group justify="space-between" wrap="nowrap">
+						<Group gap={12} wrap="nowrap">
+							<ActionIcon
+								variant="light"
+								color="violet"
+								radius="xl"
+							>
+								👥
+							</ActionIcon>
+							<Box>
+								<Text size="sm" fw={600}>
+									People
+								</Text>
+								<Text size="xs" c="dimmed">
+									Manage contacts and friend requests
+								</Text>
+							</Box>
+						</Group>
+						<Text c="dimmed" size="sm">
+							›
+						</Text>
+					</Group>
+				</Box>
+
+				<Box
+					style={profileMenuCardStyle}
+					onClick={() => navigate("/bookmarks")}
+				>
+					<Group justify="space-between" wrap="nowrap">
+						<Group gap={12} wrap="nowrap">
+							<ActionIcon
+								variant="light"
+								color="violet"
+								radius="xl"
+							>
+								🔖
+							</ActionIcon>
+							<Box>
+								<Text size="sm" fw={600}>
+									Saved
+								</Text>
+								<Text size="xs" c="dimmed">
+									Revisit posts you kept for later
+								</Text>
+							</Box>
+						</Group>
+						<Text c="dimmed" size="sm">
+							›
+						</Text>
+					</Group>
+				</Box>
+
 				<Text
 					size="xs"
 					c="dimmed"
