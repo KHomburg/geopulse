@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActionIcon, Box, Group, Text } from "@mantine/core";
+import { ChevronLeftIcon, ChevronRightIcon } from "./icons";
 
 interface PostMediaGalleryProps {
 	mediaUrls: string[];
@@ -34,8 +35,9 @@ const PostMediaGallery = ({
 					position: "relative",
 					overflow: "hidden",
 					borderRadius,
-					border: "1px solid #2a2a2a",
-					background: "#101010"
+					border: "1px solid rgba(255,250,242,0.08)",
+					background: "#11141b",
+					boxShadow: "0 24px 60px rgba(0,0,0,0.26)"
 				}}
 			>
 				<img
@@ -48,6 +50,15 @@ const PostMediaGallery = ({
 						aspectRatio,
 						objectFit: "cover",
 						background: "#0f0f0f"
+					}}
+				/>
+				<Box
+					style={{
+						position: "absolute",
+						inset: 0,
+						background:
+							"linear-gradient(180deg, rgba(7,8,10,0.05) 0%, rgba(7,8,10,0.08) 45%, rgba(7,8,10,0.28) 100%)",
+						pointerEvents: "none"
 					}}
 				/>
 
@@ -75,11 +86,12 @@ const PostMediaGallery = ({
 								}
 								style={{
 									pointerEvents: "auto",
-									background: "rgba(10,10,10,0.72)",
-									border: "1px solid rgba(255,255,255,0.12)"
+									background: "rgba(12,14,18,0.7)",
+									border: "1px solid rgba(255,250,242,0.12)",
+									color: "#fffaf2"
 								}}
 							>
-								‹
+								<ChevronLeftIcon size={16} />
 							</ActionIcon>
 							<ActionIcon
 								variant="filled"
@@ -93,11 +105,12 @@ const PostMediaGallery = ({
 								}
 								style={{
 									pointerEvents: "auto",
-									background: "rgba(10,10,10,0.72)",
-									border: "1px solid rgba(255,255,255,0.12)"
+									background: "rgba(12,14,18,0.7)",
+									border: "1px solid rgba(255,250,242,0.12)",
+									color: "#fffaf2"
 								}}
 							>
-								›
+								<ChevronRightIcon size={16} />
 							</ActionIcon>
 						</Group>
 
@@ -108,11 +121,11 @@ const PostMediaGallery = ({
 								right: 10,
 								padding: "4px 8px",
 								borderRadius: 999,
-								background: "rgba(10,10,10,0.72)",
-								border: "1px solid rgba(255,255,255,0.08)"
+								background: "rgba(12,14,18,0.74)",
+								border: "1px solid rgba(255,250,242,0.08)"
 							}}
 						>
-							<Text size="xs" fw={700} c="white">
+							<Text size="xs" fw={700} c="#fffaf2">
 								{activeIndex + 1}/{mediaUrls.length}
 							</Text>
 						</Box>
@@ -139,10 +152,10 @@ const PostMediaGallery = ({
 									padding: 0,
 									borderRadius: 12,
 									border: isActive
-										? "2px solid #6c63ff"
-										: "1px solid #2a2a2a",
+										? "2px solid #c4874d"
+										: "1px solid rgba(255,250,242,0.08)",
 									overflow: "hidden",
-									background: "#101010",
+									background: "#11141b",
 									cursor: "pointer",
 									flexShrink: 0
 								}}

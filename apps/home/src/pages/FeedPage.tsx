@@ -4,7 +4,6 @@ import {
 	Avatar,
 	Badge,
 	Box,
-	Button,
 	Center,
 	Group,
 	Loader,
@@ -26,6 +25,21 @@ import { useInboxStore } from "../store/inbox.store";
 import { POST_TAGS, type PostTagKey } from "../constants/postTags";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import PostMediaGallery from "../components/PostMediaGallery";
+import {
+	AlertIcon,
+	AnonymousIcon,
+	ArrowDownIcon,
+	ArrowUpIcon,
+	BellIcon,
+	BookmarkFilledIcon,
+	BookmarkIcon,
+	CommentIcon,
+	GlobeIcon,
+	LocationIcon,
+	RefreshIcon,
+	SendIcon,
+	TrashIcon
+} from "../components/icons";
 
 const FILTER_OPTIONS = [
 	{ value: "now", label: "Last hour" },
@@ -52,8 +66,36 @@ function authorLabel(post: Post): string {
 
 function anonymityColor(mode: Post["anonymityMode"]): string {
 	if (mode === "anonymous") return "gray";
-	if (mode === "local_legend") return "violet";
+	if (mode === "local_legend") return "brand";
 	return "blue";
+}
+
+function getTagMeta(tag: string) {
+	return POST_TAGS.find((item) => item.key === tag) ?? null;
+}
+
+function getAuthorInitials(post: Post) {
+	const label = authorLabel(post).replace(/^User\s+#/u, "U");
+	const compact = label
+		.split(/\s+/u)
+		.filter(Boolean)
+		.slice(0, 2)
+		.map((part) => part[0]?.toUpperCase() ?? "")
+		.join("");
+
+	return compact || "GP";
+}
+
+function getAuthorAccent(post: Post) {
+	if (post.anonymityMode === "anonymous") {
+		return "#7a808c";
+	}
+
+	if (post.anonymityMode === "local_legend") {
+		return "#c4874d";
+	}
+
+	return "#65b8b0";
 }
 
 interface PostCardProps {
@@ -76,14 +118,14 @@ const CommentItem = ({
 }) => (
 	<Box
 		style={{
-			borderLeft: "2px solid #2a2a2a",
-			paddingLeft: 10,
-			marginBottom: 8
+			paddingLeft: 14,
+			marginBottom: 10,
+			borderLeft: "1px solid rgba(255,250,242,0.08)"
 		}}
 	>
 		<Group justify="space-between" wrap="nowrap">
 			<Group gap={6} wrap="nowrap">
-				<Text size="xs" fw={600} style={{ color: "#b0b0b0" }}>
+				<Text size="xs" fw={700} style={{ color: "#fffaf2" }}>
 					{comment.author?.username ?? `User #${comment.userId}`}
 				</Text>
 				<Text size="xs" c="dimmed">
@@ -102,11 +144,18 @@ const CommentItem = ({
 							.then(() => onDeleted(comment.id))
 					}
 				>
-					✕
+					<TrashIcon size={14} />
 				</ActionIcon>
 			)}
 		</Group>
-		<Text size="xs" style={{ color: "#d0d0d0", wordBreak: "break-word" }}>
+		<Text
+			size="xs"
+			style={{
+				color: "#d7d2c9",
+				wordBreak: "break-word",
+				lineHeight: 1.55
+			}}
+		>
 			{comment.content}
 		</Text>
 	</Box>
@@ -224,47 +273,68 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 	return (
 		<Paper
 			data-testid="post-card"
+			className="gp-surface gp-surface--strong"
 			style={{
-				background: "#141414",
-				border: "1px solid #2a2a2a",
-				padding: 16,
-				marginBottom: 12
+				padding: 18,
+				marginBottom: 14,
+				borderRadius: 28
 			}}
 			radius="lg"
 		>
-			<Group justify="space-between" mb={10} wrap="nowrap">
+			<Group
+				justify="space-between"
+				mb={14}
+				wrap="nowrap"
+				align="flex-start"
+			>
 				<Group gap={10} wrap="nowrap">
 					<Avatar
 						radius="xl"
-						size="sm"
-						color="violet"
-						style={{ background: "#2a2a2a", flexShrink: 0 }}
+						size={46}
+						style={{
+							background: `linear-gradient(135deg, ${getAuthorAccent(
+								post
+							)} 0%, rgba(255,255,255,0.08) 100%)`,
+							color: "#fffaf2",
+							flexShrink: 0,
+							border: "1px solid rgba(255,250,242,0.12)"
+						}}
 					>
-						{post.anonymityMode === "anonymous"
-							? "?"
-							: post.authorPinAvatar ??
-							  (post.postType === "drop" ? "🎁" : "📍")}
+						{post.anonymityMode === "anonymous" ? (
+							<AnonymousIcon size={18} />
+						) : (
+							getAuthorInitials(post)
+						)}
 					</Avatar>
-					<Stack gap={0}>
+					<Stack gap={4}>
 						<Text
 							size="sm"
 							fw={600}
 							style={{
-								lineHeight: 1.3,
-								color: post.authorNameColor ?? "#f0f0f0"
+								lineHeight: 1.2,
+								fontSize: 15,
+								color: post.authorNameColor ?? "#fffaf2"
 							}}
 						>
 							{authorLabel(post)}
 						</Text>
-						<Text size="xs" c="dimmed">
-							{timeAgo(post.createdAt)}
-						</Text>
+						<Group gap={8} className="gp-meta-row">
+							<Text size="xs" c="dimmed">
+								{timeAgo(post.createdAt)}
+							</Text>
+							<Text size="xs" c="dimmed">
+								{post.postType === "drop" ? "Drop" : "Pulse"}
+							</Text>
+							<Text size="xs" c="dimmed">
+								{post.lat.toFixed(3)}, {post.lng.toFixed(3)}
+							</Text>
+						</Group>
 					</Stack>
 				</Group>
 
-				<Group gap={6} wrap="nowrap">
+				<Group gap={8} wrap="wrap" justify="flex-end">
 					<Badge
-						variant="outline"
+						variant="light"
 						color={anonymityColor(post.anonymityMode)}
 						size="xs"
 						radius="sm"
@@ -283,8 +353,8 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 					)}
 					{post.postType === "drop" && (
 						<Badge
-							variant="filled"
-							color="teal"
+							variant="light"
+							color="cyan"
 							size="xs"
 							radius="sm"
 						>
@@ -293,8 +363,8 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 					)}
 					{post.isSuperLocalLegend && (
 						<Badge
-							variant="filled"
-							color="yellow"
+							variant="light"
+							color="brand"
 							size="xs"
 							radius="sm"
 						>
@@ -327,37 +397,51 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 				</Text>
 			)}
 			{post.tags.length > 0 && (
-				<Group gap={6} mb={12}>
+				<Group gap={8} mb={14}>
 					{post.tags.map((tag) => {
-						const tagDef = POST_TAGS.find(
-							(item) => item.key === tag
-						);
+						const tagDef = getTagMeta(tag);
 						return (
-							<Badge
+							<Box
 								key={tag}
-								variant="outline"
-								color="gray"
-								size="xs"
+								className="gp-tag-chip"
+								style={{
+									padding: "7px 12px",
+									display: "inline-flex",
+									alignItems: "center",
+									gap: 8,
+									color: "#fffaf2"
+								}}
 							>
-								{tagDef?.icon ?? "#"} {tagDef?.label ?? tag}
-							</Badge>
+								<Box
+									style={{
+										width: 8,
+										height: 8,
+										borderRadius: 999,
+										background: tagDef?.tone ?? "#c4874d"
+									}}
+								/>
+								<Text size="xs" fw={600} c="inherit">
+									{tagDef?.label ?? tag}
+								</Text>
+							</Box>
 						);
 					})}
 				</Group>
 			)}
 
 			<Group justify="space-between" align="center" mt={4}>
-				<Group gap={6} wrap="nowrap">
+				<Group gap={8} wrap="nowrap">
 					<ActionIcon
 						variant="subtle"
-						size="sm"
+						size="lg"
 						disabled={!isAuthenticated || isWriteBlocked}
 						onClick={() => handleVote(1)}
 						style={{
-							color: post.karmaScore > 0 ? "#6c63ff" : "#555"
+							color: post.karmaScore > 0 ? "#c4874d" : "#9ca3b0",
+							background: "rgba(255,255,255,0.03)"
 						}}
 					>
-						▲
+						<ArrowUpIcon size={16} />
 					</ActionIcon>
 					<Text
 						size="sm"
@@ -365,10 +449,10 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 						style={{
 							color:
 								post.karmaScore > 0
-									? "#6c63ff"
+									? "#e7b179"
 									: post.karmaScore < 0
-									? "#ff4757"
-									: "#888",
+									? "#f06b5f"
+									: "#9ca3b0",
 							minWidth: 20,
 							textAlign: "center"
 						}}
@@ -377,14 +461,15 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 					</Text>
 					<ActionIcon
 						variant="subtle"
-						size="sm"
+						size="lg"
 						disabled={!isAuthenticated || isWriteBlocked}
 						onClick={() => handleVote(-1)}
 						style={{
-							color: post.karmaScore < 0 ? "#ff4757" : "#555"
+							color: post.karmaScore < 0 ? "#f06b5f" : "#9ca3b0",
+							background: "rgba(255,255,255,0.03)"
 						}}
 					>
-						▼
+						<ArrowDownIcon size={16} />
 					</ActionIcon>
 					{voteError && (
 						<Text size="xs" c="red">
@@ -393,11 +478,14 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 					)}
 					<ActionIcon
 						variant="subtle"
-						size="sm"
+						size="lg"
 						onClick={toggleComments}
-						style={{ color: showComments ? "#6c63ff" : "#666" }}
+						style={{
+							color: showComments ? "#65b8b0" : "#9ca3b0",
+							background: "rgba(255,255,255,0.03)"
+						}}
 					>
-						💬
+						<CommentIcon size={16} />
 					</ActionIcon>
 					<Text size="xs" c="dimmed">
 						{commentCount}
@@ -405,22 +493,35 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 				</Group>
 
 				<Group gap={6} wrap="nowrap">
-					<Text size="xs" c="dimmed">
-						📍 {post.lat.toFixed(3)}, {post.lng.toFixed(3)}
-					</Text>
+					<Box
+						className="gp-mini-pill"
+						style={{ padding: "7px 10px" }}
+					>
+						<LocationIcon size={14} />
+						<Text size="xs" c="inherit">
+							{post.lat.toFixed(3)}, {post.lng.toFixed(3)}
+						</Text>
+					</Box>
 
 					{isAuthenticated && (
 						<ActionIcon
 							variant="subtle"
-							size="sm"
+							size="lg"
 							onClick={toggleBookmark}
 							disabled={bookmarkLoading || isWriteBlocked}
-							style={{ color: bookmarked ? "#6c63ff" : "#555" }}
+							style={{
+								color: bookmarked ? "#c4874d" : "#9ca3b0",
+								background: "rgba(255,255,255,0.03)"
+							}}
 							title={
 								bookmarked ? "Remove bookmark" : "Save bookmark"
 							}
 						>
-							{bookmarked ? "🔖" : "🏷"}
+							{bookmarked ? (
+								<BookmarkFilledIcon size={16} />
+							) : (
+								<BookmarkIcon size={16} />
+							)}
 						</ActionIcon>
 					)}
 
@@ -428,12 +529,13 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 						<ActionIcon
 							color="red"
 							variant="subtle"
-							size="sm"
+							size="lg"
 							disabled={isWriteBlocked}
 							onClick={handleDelete}
 							title="Delete post"
+							style={{ background: "rgba(255,255,255,0.03)" }}
 						>
-							✕
+							<TrashIcon size={16} />
 						</ActionIcon>
 					)}
 				</Group>
@@ -494,8 +596,9 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 								<ActionIcon
 									variant="filled"
 									style={{
-										background: "#6c63ff",
-										color: "white"
+										background:
+											"linear-gradient(135deg, #c4874d, #e7b179)",
+										color: "#17120d"
 									}}
 									size="lg"
 									disabled={
@@ -505,7 +608,7 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 									}
 									onClick={handleAddComment}
 								>
-									↑
+									<SendIcon size={16} />
 								</ActionIcon>
 							</Group>
 							{commentError && (
@@ -598,29 +701,19 @@ const FeedPage = () => {
 	}, [hasMore, isLoadingFeed, loadFeed]);
 
 	return (
-		<Box
-			style={{
-				height: "100%",
-				display: "flex",
-				flexDirection: "column",
-				background: "#0a0a0a"
-			}}
-		>
-			<Box
-				style={{
-					position: "sticky",
-					top: 0,
-					zIndex: 10,
-					background: "rgba(10,10,10,0.95)",
-					backdropFilter: "blur(12px)",
-					borderBottom: "1px solid #2a2a2a",
-					padding: "12px 16px"
-				}}
-			>
+		<Box className="gp-page">
+			<Box className="gp-page-header">
 				<Group justify="space-between" align="center">
-					<Text fw={700} size="md" style={{ color: "#f0f0f0" }}>
-						Pulse Feed
-					</Text>
+					<Box>
+						<Text className="gp-page-header__eyebrow">
+							Local pulse
+						</Text>
+						<Text className="gp-page-header__title">Feed</Text>
+						<Text className="gp-page-header__subtitle">
+							Nearby stories, drops, and visual updates arranged
+							with more clarity.
+						</Text>
+					</Box>
 					<Group gap={8} wrap="nowrap">
 						<Select
 							data={FILTER_OPTIONS}
@@ -636,11 +729,11 @@ const FeedPage = () => {
 								size="lg"
 								onClick={() => navigate("/notifications")}
 								style={{
-									color: "#f0f0f0",
-									background: "rgba(255,255,255,0.04)"
+									color: "#fffaf2",
+									background: "rgba(255,255,255,0.05)"
 								}}
 							>
-								🔔
+								<BellIcon size={18} />
 							</ActionIcon>
 							{unreadNotifications > 0 && (
 								<Box
@@ -667,64 +760,78 @@ const FeedPage = () => {
 						</Box>
 					</Group>
 				</Group>
-				<Group
-					gap={8}
-					mt={10}
-					wrap="nowrap"
-					style={{ overflowX: "auto" }}
-				>
+				<Group className="gp-chip-row" mt={10} wrap="nowrap">
 					{POST_TAGS.map((tag) => {
 						const selected = selectedTags.includes(tag.key);
 						return (
-							<Button
+							<button
 								key={tag.key}
-								size="compact-xs"
-								variant={selected ? "filled" : "subtle"}
-								color={selected ? "violet" : "gray"}
 								onClick={() => toggleTag(tag.key)}
+								className={`gp-tag-chip ${
+									selected ? "gp-tag-chip--active" : ""
+								}`}
+								style={{
+									color: selected ? "#fffaf2" : undefined
+								}}
 							>
-								{tag.icon} {tag.label}
-							</Button>
+								<Box
+									style={{
+										width: 8,
+										height: 8,
+										borderRadius: 999,
+										background: tag.tone,
+										display: "inline-block",
+										marginRight: 8
+									}}
+								/>
+								{tag.label}
+							</button>
 						);
 					})}
 				</Group>
 			</Box>
 
-			<Box style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+			<Box className="gp-scroll" style={{ paddingTop: 16 }}>
 				{!location.lat ? (
-					<Center style={{ paddingTop: 80 }}>
-						<Stack align="center" gap="sm">
-							<Loader color="violet" size="sm" />
-							<Text c="dimmed" size="sm">
-								Acquiring location…
-							</Text>
-						</Stack>
-					</Center>
+					<Box className="gp-empty-state">
+						<Box className="gp-empty-state__icon">
+							<LocationIcon size={24} />
+						</Box>
+						<Loader color="brand" size="sm" />
+						<Text fw={700}>Getting your location</Text>
+						<Text c="dimmed" size="sm">
+							The feed is tuned to where you are standing right
+							now.
+						</Text>
+					</Box>
 				) : feedError ? (
-					<Center style={{ paddingTop: 80 }}>
-						<Stack align="center" gap="sm">
-							<Text size="xl">⚠️</Text>
-							<Text c="red" size="sm">
-								{feedError}
-							</Text>
-							<ActionIcon
-								variant="subtle"
-								color="violet"
-								onClick={() => loadFeed(true)}
-							>
-								↻
-							</ActionIcon>
-						</Stack>
-					</Center>
+					<Box className="gp-empty-state">
+						<Box className="gp-empty-state__icon">
+							<AlertIcon size={24} />
+						</Box>
+						<Text fw={700}>Feed unavailable</Text>
+						<Text c="red" size="sm">
+							{feedError}
+						</Text>
+						<ActionIcon
+							variant="filled"
+							size="lg"
+							onClick={() => loadFeed(true)}
+						>
+							<RefreshIcon size={16} />
+						</ActionIcon>
+					</Box>
 				) : posts.length === 0 && !isLoadingFeed ? (
-					<Center style={{ paddingTop: 80 }}>
-						<Stack align="center" gap="sm">
-							<Text size="xl">📡</Text>
-							<Text c="dimmed" size="sm">
-								No pulses in this area yet
-							</Text>
-						</Stack>
-					</Center>
+					<Box className="gp-empty-state">
+						<Box className="gp-empty-state__icon">
+							<GlobeIcon size={24} />
+						</Box>
+						<Text fw={700}>Nothing nearby yet</Text>
+						<Text c="dimmed" size="sm">
+							When locals post from around you, they will appear
+							here as a cleaner visual timeline.
+						</Text>
+					</Box>
 				) : (
 					posts.map((post) => (
 						<PostCard

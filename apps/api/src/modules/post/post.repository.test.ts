@@ -125,4 +125,39 @@ describe("PostRepository (SQLite)", () => {
 		});
 		expect(results.length).toBe(2);
 	});
+
+	it("hides legacy posts once they are older than 24 hours", async () => {
+		const recent = await PostRepository.create({
+			...SEED_POST,
+			userId,
+			obfuscatedLat: 48.857,
+			obfuscatedLng: 2.352,
+			expiresAt: null
+		});
+		const old = await PostRepository.create({
+			...SEED_POST,
+			userId,
+			obfuscatedLat: 48.858,
+			obfuscatedLng: 2.353,
+			expiresAt: null
+		});
+
+		const PostModel = (await import("./post.model")).default;
+		await PostModel.update(
+			{ createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000) },
+			{ where: { id: old.id }, silent: true }
+		);
+
+		const results = await PostRepository.findByLocation({
+			minLat: 48.8,
+			maxLat: 49.0,
+			minLng: 2.3,
+			maxLng: 2.5,
+			since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+			limit: 10,
+			offset: 0
+		});
+
+		expect(results.map((post) => post.id)).toEqual([recent.id]);
+	});
 });

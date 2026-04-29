@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
+import { BrandPulseIcon } from "../components/icons";
 
 function passwordStrength(pwd: string): {
 	score: number;
@@ -59,130 +60,130 @@ const RegisterPage = () => {
 	};
 
 	return (
-		<Center
-			style={{
-				height: "100vh",
-				background: "linear-gradient(180deg, #0a0a0a 0%, #13111c 100%)"
-			}}
-		>
-			<Box style={{ width: "100%", maxWidth: 380, padding: "0 24px" }}>
-				<Stack align="center" mb={40} gap={4}>
-					<Text
-						style={{
-							fontSize: 32,
-							fontWeight: 800,
-							letterSpacing: -1,
-							color: "#6c63ff"
-						}}
-					>
-						GeoPulse
-					</Text>
-					<Text c="dimmed" size="sm">
-						Join the local pulse
-					</Text>
-				</Stack>
-
-				<form onSubmit={handleSubmit}>
+		<Center className="gp-auth-shell">
+			<Box className="gp-auth-card">
+				<Stack gap="xl">
 					<Stack gap="md">
-						{accountNotice && (
-							<Alert
-								color={
-									accountNotice.kind === "banned"
-										? "red"
-										: "yellow"
-								}
-								onClose={clearAccountNotice}
-								withCloseButton
-							>
-								{accountNotice.message}
-							</Alert>
-						)}
+						<Box className="gp-mini-pill" w="fit-content">
+							Elegant local discovery starts here
+						</Box>
+						<Box className="gp-brand-lockup">
+							<Box className="gp-brand-mark">
+								<BrandPulseIcon size={28} />
+							</Box>
+							<Box>
+								<Text className="gp-brand-title">GeoPulse</Text>
+								<Text className="gp-brand-subtitle">
+									Build a more trusted view of your
+									neighborhood.
+								</Text>
+							</Box>
+						</Box>
+					</Stack>
 
-						{error && (
-							<Alert
-								color="red"
-								onClose={clearError}
-								withCloseButton
-							>
-								{error}
-							</Alert>
-						)}
+					<form onSubmit={handleSubmit}>
+						<Stack gap="md">
+							{accountNotice && (
+								<Alert
+									color={
+										accountNotice.kind === "banned"
+											? "red"
+											: "yellow"
+									}
+									onClose={clearAccountNotice}
+									withCloseButton
+								>
+									{accountNotice.message}
+								</Alert>
+							)}
 
-						<TextInput
-							label="Email"
-							placeholder="you@example.com"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							required
-							type="email"
-							autoComplete="email"
-						/>
+							{error && (
+								<Alert
+									color="red"
+									onClose={clearError}
+									withCloseButton
+								>
+									{error}
+								</Alert>
+							)}
 
-						<Box>
-							<PasswordInput
-								label="Password"
-								placeholder="Min. 6 characters"
-								value={password}
-								onChange={(e) => setPassword(e.target.value)}
+							<TextInput
+								label="Email"
+								description="A valid email keeps your location identity recoverable."
+								placeholder="you@example.com"
+								value={email}
+								onChange={(e) => setEmail(e.target.value)}
 								required
-								minLength={6}
+								type="email"
+								autoComplete="email"
+							/>
+
+							<Box>
+								<PasswordInput
+									label="Password"
+									placeholder="Min. 6 characters"
+									value={password}
+									onChange={(e) =>
+										setPassword(e.target.value)
+									}
+									required
+									minLength={6}
+									autoComplete="new-password"
+								/>
+								{password.length > 0 && (
+									<Box mt={6}>
+										<Progress
+											value={(strength.score / 4) * 100}
+											color={strength.color}
+											size="xs"
+											radius="xl"
+										/>
+										<Text size="xs" c="dimmed" mt={4}>
+											{strength.label}
+										</Text>
+									</Box>
+								)}
+							</Box>
+
+							<PasswordInput
+								label="Confirm Password"
+								placeholder="Re-enter password"
+								value={confirm}
+								onChange={(e) => setConfirm(e.target.value)}
+								required
+								error={
+									mismatch
+										? "Passwords do not match"
+										: undefined
+								}
 								autoComplete="new-password"
 							/>
-							{password.length > 0 && (
-								<Box mt={6}>
-									<Progress
-										value={(strength.score / 4) * 100}
-										color={strength.color}
-										size="xs"
-										radius="xl"
-									/>
-									<Text size="xs" c="dimmed" mt={4}>
-										{strength.label}
-									</Text>
-								</Box>
-							)}
-						</Box>
 
-						<PasswordInput
-							label="Confirm Password"
-							placeholder="Re-enter password"
-							value={confirm}
-							onChange={(e) => setConfirm(e.target.value)}
-							required
-							error={
-								mismatch ? "Passwords do not match" : undefined
-							}
-							autoComplete="new-password"
-						/>
-
-						<Button
-							type="submit"
-							fullWidth
-							loading={isLoading}
-							disabled={mismatch}
-							mt="sm"
-							style={{
-								background:
-									"linear-gradient(135deg, #6c63ff 0%, #8b85ff 100%)",
-								height: 48
-							}}
-						>
-							Create Account
-						</Button>
-
-						<Text ta="center" size="sm" c="dimmed">
-							Already have an account?{" "}
-							<Anchor
-								component="button"
-								type="button"
-								onClick={() => navigate("/login")}
-								style={{ color: "#6c63ff" }}
+							<Button
+								type="submit"
+								fullWidth
+								loading={isLoading}
+								disabled={mismatch}
+								mt="sm"
+								h={50}
 							>
-								Sign In
-							</Anchor>
-						</Text>
-					</Stack>
-				</form>
+								Create account
+							</Button>
+
+							<Text ta="center" size="sm" c="dimmed">
+								Already have an account?{" "}
+								<Anchor
+									component="button"
+									type="button"
+									onClick={() => navigate("/login")}
+									style={{ color: "#6c63ff" }}
+								>
+									Sign In
+								</Anchor>
+							</Text>
+						</Stack>
+					</form>
+				</Stack>
 			</Box>
 		</Center>
 	);

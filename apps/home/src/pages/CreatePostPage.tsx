@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import {
 	ActionIcon,
 	Alert,
@@ -8,6 +8,7 @@ import {
 	Group,
 	SegmentedControl,
 	Stack,
+	Switch,
 	Text,
 	Textarea,
 	TextInput
@@ -19,33 +20,90 @@ import { useAuthStore } from "../store/auth.store";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { POST_TAGS, type PostTagKey } from "../constants/postTags";
 import { userApi, type CurrentUser } from "../api/user.api";
-import PostMediaGallery from "../components/PostMediaGallery";
+import {
+	CameraIcon,
+	CloseIcon,
+	GalleryIcon,
+	SparkIcon
+} from "../components/icons";
 
 const ANONYMITY_DATA = [
-	{ label: "🌍 Public", value: "public" },
-	{ label: "🎭 Alias", value: "local_legend" },
-	{ label: "👤 Anon", value: "anonymous" }
+	{ label: "Public", value: "public" },
+	{ label: "Alias", value: "local_legend" },
+	{ label: "Anonymous", value: "anonymous" }
 ];
 
 const MAX_POST_MEDIA_ITEMS = 6;
+const MAX_UPLOAD_DIMENSION_PX = 1440;
+const IMAGE_UPLOAD_QUALITY = 0.82;
+
+function isMobileCaptureDevice() {
+	if (typeof window === "undefined") {
+		return false;
+	}
+
+	return (
+		window.matchMedia("(pointer: coarse)").matches ||
+		/Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent)
+	);
+}
+
+function readFileAsDataUrl(file: File) {
+	return new Promise<string>((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(String(reader.result ?? ""));
+		reader.onerror = () => reject(new Error("Failed to read image"));
+		reader.readAsDataURL(file);
+	});
+}
+
+function loadImage(src: string) {
+	return new Promise<HTMLImageElement>((resolve, reject) => {
+		const image = new Image();
+		image.onload = () => resolve(image);
+		image.onerror = () => reject(new Error("Failed to load image"));
+		image.src = src;
+	});
+}
+
+async function fileToPostMediaUrl(file: File) {
+	const sourceDataUrl = await readFileAsDataUrl(file);
+	const image = await loadImage(sourceDataUrl);
+	const longestSide = Math.max(image.width, image.height);
+	const scale =
+		longestSide > MAX_UPLOAD_DIMENSION_PX
+			? MAX_UPLOAD_DIMENSION_PX / longestSide
+			: 1;
+	const width = Math.max(1, Math.round(image.width * scale));
+	const height = Math.max(1, Math.round(image.height * scale));
+	const canvas = document.createElement("canvas");
+	canvas.width = width;
+	canvas.height = height;
+	const context = canvas.getContext("2d");
+
+	if (!context) {
+		return sourceDataUrl;
+	}
+
+	context.drawImage(image, 0, 0, width, height);
+	return canvas.toDataURL("image/jpeg", IMAGE_UPLOAD_QUALITY);
+}
 
 const CreatePostPage = () => {
 	const navigate = useNavigate();
 	const { location, addPost } = useFeedStore();
 	const accountNotice = useAuthStore((state) => state.accountNotice);
 	useGeolocation();
+	const cameraInputRef = useRef<HTMLInputElement | null>(null);
+	const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
 	const [content, setContent] = useState("");
 	const [mode, setMode] = useState<AnonymityMode>("public");
 	const [pseudonym, setPseudonym] = useState("");
-	const [postType, setPostType] = useState<"standard" | "drop">("standard");
 	const [selectedTags, setSelectedTags] = useState<PostTagKey[]>([]);
-	const [dropHint, setDropHint] = useState("");
-	const [dropUnlockRadiusMeters] = useState(20);
 	const [isSuperLocalLegend, setIsSuperLocalLegend] = useState(false);
 	const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-	const [isStory, setIsStory] = useState(false);
-	const [mediaInputs, setMediaInputs] = useState([""]);
+	const [mediaItems, setMediaItems] = useState<string[]>([]);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState("");
 
@@ -57,14 +115,20 @@ const CreatePostPage = () => {
 	}, []);
 
 	const isWriteBlocked = accountNotice?.kind === "read_only";
-	const mediaUrls = mediaInputs
-		.map((value) => value.trim())
-		.filter(Boolean)
-		.slice(0, MAX_POST_MEDIA_ITEMS);
+	const mediaUrls = mediaItems.slice(0, MAX_POST_MEDIA_ITEMS);
+	const isStory = true;
+	const prefersCameraCapture = isMobileCaptureDevice();
+	const sectionStyle = {
+		paddingBottom: 18,
+		borderBottom: "1px solid var(--gp-border)"
+	} as const;
+	const sectionLabelStyle = {
+		textTransform: "uppercase",
+		letterSpacing: 0.5
+	} as const;
 	const canSubmit =
 		(content.trim().length > 0 || mediaUrls.length > 0) &&
 		(mode !== "local_legend" || pseudonym.trim().length > 0) &&
-		(postType !== "drop" || dropHint.trim().length > 0) &&
 		location.lat !== null &&
 		!isWriteBlocked;
 
@@ -80,27 +144,60 @@ const CreatePostPage = () => {
 		});
 	};
 
-	const updateMediaInput = (index: number, value: string) => {
-		setMediaInputs((current) =>
-			current.map((entry, entryIndex) =>
-				entryIndex === index ? value : entry
-			)
+	const removeMediaItem = (index: number) => {
+		setMediaItems((current) =>
+			current.filter((_, itemIndex) => itemIndex !== index)
 		);
 	};
 
-	const addMediaInput = () => {
-		setMediaInputs((current) =>
-			current.length >= MAX_POST_MEDIA_ITEMS ? current : [...current, ""]
-		);
-	};
-
-	const removeMediaInput = (index: number) => {
-		setMediaInputs((current) => {
-			const next = current.filter(
-				(_, entryIndex) => entryIndex !== index
+	const handleOpenImagePicker = () => {
+		if (mediaUrls.length >= MAX_POST_MEDIA_ITEMS) {
+			setError(
+				`You can add up to ${MAX_POST_MEDIA_ITEMS} images to one pulse`
 			);
-			return next.length > 0 ? next : [""];
-		});
+			return;
+		}
+
+		setError("");
+		if (prefersCameraCapture) {
+			cameraInputRef.current?.click();
+			return;
+		}
+
+		uploadInputRef.current?.click();
+	};
+
+	const handleMediaSelection = async (
+		event: ChangeEvent<HTMLInputElement>
+	) => {
+		const files = Array.from(event.currentTarget.files ?? []).filter(
+			(file) => file.type.startsWith("image/")
+		);
+		event.currentTarget.value = "";
+
+		if (!files.length) {
+			return;
+		}
+
+		const remainingSlots = MAX_POST_MEDIA_ITEMS - mediaUrls.length;
+		const nextFiles = files.slice(0, remainingSlots);
+
+		if (nextFiles.length < files.length) {
+			setError(
+				`Only ${MAX_POST_MEDIA_ITEMS} images can be attached to one pulse`
+			);
+		}
+
+		try {
+			const nextMediaUrls = await Promise.all(
+				nextFiles.map((file) => fileToPostMediaUrl(file))
+			);
+			setMediaItems((current) =>
+				[...current, ...nextMediaUrls].slice(0, MAX_POST_MEDIA_ITEMS)
+			);
+		} catch {
+			setError("Could not process that image. Try another one.");
+		}
 	};
 
 	const handleSubmit = async () => {
@@ -114,10 +211,8 @@ const CreatePostPage = () => {
 				anonymityMode: mode,
 				pseudonym:
 					mode === "local_legend" ? pseudonym.trim() : undefined,
-				postType,
+				postType: "standard",
 				tags: selectedTags,
-				dropHint: postType === "drop" ? dropHint.trim() : undefined,
-				dropUnlockRadiusMeters,
 				isSuperLocalLegend,
 				lat: location.lat,
 				lng: location.lng,
@@ -136,334 +231,283 @@ const CreatePostPage = () => {
 	};
 
 	return (
-		<Box
-			style={{
-				height: "100%",
-				display: "flex",
-				flexDirection: "column",
-				background: "#0a0a0a",
-				padding: "20px 16px"
-			}}
-		>
-			{/* Header */}
-			<Group justify="space-between" mb={24} align="center">
-				<Button
-					variant="subtle"
-					color="gray"
-					size="compact-sm"
-					onClick={() => navigate(-1)}
-					style={{ color: "#888" }}
-				>
-					✕ Cancel
-				</Button>
-				<Text fw={700} size="md">
-					New Pulse
-				</Text>
-				<Button
-					size="compact-sm"
-					disabled={!canSubmit}
-					loading={isSubmitting}
-					onClick={handleSubmit}
-					style={{
-						background: canSubmit
-							? "linear-gradient(135deg, #6c63ff 0%, #8b85ff 100%)"
-							: "#2a2a2a"
-					}}
-				>
-					Post
-				</Button>
-			</Group>
-
-			<Stack gap="lg" style={{ flex: 1 }}>
-				{accountNotice?.kind === "read_only" && (
-					<Alert color="yellow" variant="light" radius="md">
-						{accountNotice.message}
-					</Alert>
-				)}
-
-				{/* Anonymity mode */}
+		<Box className="gp-page">
+			<Box className="gp-page-header">
 				<Box>
-					<Text
-						size="xs"
-						c="dimmed"
-						mb={8}
-						fw={600}
-						style={{
-							textTransform: "uppercase",
-							letterSpacing: 0.5
-						}}
-					>
-						Post as
-					</Text>
-					<SegmentedControl
-						fullWidth
-						data={ANONYMITY_DATA}
-						value={mode}
-						onChange={(val) => setMode(val as AnonymityMode)}
-					/>
+					<Text className="gp-page-header__eyebrow">Compose</Text>
+					<Text className="gp-page-header__title">New pulse</Text>
 				</Box>
+			</Box>
 
-				{/* Pseudonym input for local_legend */}
-				{mode === "local_legend" && (
-					<TextInput
-						label="Your alias"
-						placeholder="e.g. NightOwl, StreetPulse…"
-						value={pseudonym}
-						onChange={(e) => setPseudonym(e.target.value)}
-						maxLength={50}
+			<Box className="gp-scroll" style={{ paddingTop: 8 }}>
+				<Stack gap="md">
+					{accountNotice?.kind === "read_only" && (
+						<Alert color="yellow" variant="light" radius="md">
+							{accountNotice.message}
+						</Alert>
+					)}
+
+					<input
+						ref={cameraInputRef}
+						type="file"
+						accept="image/*"
+						capture="environment"
+						onChange={handleMediaSelection}
+						style={{ display: "none" }}
 					/>
-				)}
+					<input
+						ref={uploadInputRef}
+						type="file"
+						accept="image/*"
+						multiple
+						onChange={handleMediaSelection}
+						style={{ display: "none" }}
+					/>
 
-				{/* Content */}
-				<Textarea
-					label="What's happening here?"
-					placeholder="Share what you see, hear, or feel around you…"
-					value={content}
-					onChange={(e) => setContent(e.target.value)}
-					minRows={5}
-					maxRows={10}
-					maxLength={2000}
-					autosize
-				/>
-
-				<Box>
-					<Group justify="space-between" align="center" mb={8}>
-						<Text
-							size="xs"
-							c="dimmed"
-							fw={600}
-							style={{
-								textTransform: "uppercase",
-								letterSpacing: 0.5
-							}}
-						>
-							Gallery
-						</Text>
-						<Button
-							size="compact-xs"
-							variant="subtle"
-							color="violet"
-							onClick={addMediaInput}
-							disabled={
-								mediaInputs.length >= MAX_POST_MEDIA_ITEMS
-							}
-						>
-							+ Add image
-						</Button>
-					</Group>
-
-					<Stack gap="xs">
-						{mediaInputs.map((value, index) => (
-							<Group key={`media-${index}`} gap={8} wrap="nowrap">
-								<TextInput
-									style={{ flex: 1 }}
-									type="url"
-									placeholder="https://images.example.com/your-photo.jpg"
-									value={value}
-									onChange={(event) =>
-										updateMediaInput(
-											index,
-											event.currentTarget.value
-										)
+					<Box style={sectionStyle}>
+						<Stack gap="md">
+							<Box>
+								<Text
+									size="xs"
+									c="dimmed"
+									mb={8}
+									fw={600}
+									style={sectionLabelStyle}
+								>
+									Post as
+								</Text>
+								<SegmentedControl
+									fullWidth
+									data={ANONYMITY_DATA}
+									value={mode}
+									onChange={(val) =>
+										setMode(val as AnonymityMode)
 									}
 								/>
-								{mediaInputs.length > 1 && (
-									<ActionIcon
-										variant="subtle"
-										color="red"
-										onClick={() => removeMediaInput(index)}
-									>
-										✕
-									</ActionIcon>
-								)}
-							</Group>
-						))}
-					</Stack>
-
-					<Text size="xs" c="dimmed">
-						Paste direct image links. Up to {MAX_POST_MEDIA_ITEMS}{" "}
-						photos per post.
-					</Text>
-				</Box>
-
-				{mediaUrls.length > 0 && (
-					<PostMediaGallery mediaUrls={mediaUrls} />
-				)}
-
-				<Box>
-					<Text
-						size="xs"
-						c="dimmed"
-						mb={8}
-						fw={600}
-						style={{
-							textTransform: "uppercase",
-							letterSpacing: 0.5
-						}}
-					>
-						Post type
-					</Text>
-					<SegmentedControl
-						fullWidth
-						data={[
-							{ label: "Pulse", value: "standard" },
-							{ label: "Drop", value: "drop" }
-						]}
-						value={postType}
-						onChange={(value) =>
-							setPostType(value as "standard" | "drop")
-						}
-					/>
-				</Box>
-
-				{postType === "drop" && (
-					<TextInput
-						label="Drop hint"
-						placeholder="Tease what unlocks when someone gets close"
-						value={dropHint}
-						onChange={(event) =>
-							setDropHint(event.currentTarget.value)
-						}
-						maxLength={140}
-						description={`Unlock radius fixed at ${dropUnlockRadiusMeters}m`}
-					/>
-				)}
-
-				<Box>
-					<Text
-						size="xs"
-						c="dimmed"
-						mb={8}
-						fw={600}
-						style={{
-							textTransform: "uppercase",
-							letterSpacing: 0.5
-						}}
-					>
-						Vibe tags
-					</Text>
-					<Group gap={8}>
-						{POST_TAGS.map((tag) => {
-							const selected = selectedTags.includes(tag.key);
-							return (
-								<Button
-									key={tag.key}
-									size="xs"
-									variant={selected ? "filled" : "outline"}
-									color={selected ? "violet" : "gray"}
-									onClick={() => toggleTag(tag.key)}
-								>
-									{tag.icon} {tag.label}
-								</Button>
-							);
-						})}
-					</Group>
-				</Box>
-
-				{mode === "local_legend" &&
-					(currentUser?.superPostCredits ?? 0) > 0 && (
-						<Group gap={12} align="center">
-							<Box
-								onClick={() =>
-									setIsSuperLocalLegend((value) => !value)
-								}
-								style={{
-									width: 44,
-									height: 24,
-									borderRadius: 12,
-									background: isSuperLocalLegend
-										? "#ff9f43"
-										: "#2a2a2a",
-									position: "relative",
-									cursor: "pointer"
-								}}
-							>
-								<Box
-									style={{
-										position: "absolute",
-										top: 2,
-										left: isSuperLocalLegend ? 22 : 2,
-										width: 20,
-										height: 20,
-										borderRadius: "50%",
-										background: "#fff"
-									}}
-								/>
 							</Box>
-							<Stack gap={0}>
-								<Text size="sm" fw={600}>
-									Super Local Legend
-								</Text>
-								<Text size="xs" c="dimmed">
-									Pins this post to the top for an extra hour.{" "}
-									{currentUser?.superPostCredits} credit(s)
-									left.
-								</Text>
-							</Stack>
-						</Group>
-					)}
 
-				{mode === "local_legend" &&
-					(currentUser?.superPostCredits ?? 0) === 0 && (
-						<Badge color="yellow" variant="light">
-							Visit the Karma Shop to unlock Super Local Legend
-							boosts
-						</Badge>
-					)}
+							{mode === "local_legend" && (
+								<TextInput
+									placeholder="Your alias"
+									value={pseudonym}
+									onChange={(e) =>
+										setPseudonym(e.target.value)
+									}
+									maxLength={50}
+								/>
+							)}
 
-				{/* Story toggle */}
-				<Group gap={12} align="center">
-					<Box
-						onClick={() => setIsStory((s) => !s)}
-						style={{
-							width: 44,
-							height: 24,
-							borderRadius: 12,
-							background: isStory ? "#6c63ff" : "#2a2a2a",
-							position: "relative",
-							cursor: "pointer",
-							transition: "background 0.2s ease",
-							flexShrink: 0
-						}}
-					>
-						<Box
-							style={{
-								position: "absolute",
-								top: 2,
-								left: isStory ? 22 : 2,
-								width: 20,
-								height: 20,
-								borderRadius: "50%",
-								background: "#fff",
-								transition: "left 0.2s ease"
-							}}
-						/>
+							<Textarea
+								placeholder="What is happening here?"
+								value={content}
+								onChange={(e) => setContent(e.target.value)}
+								minRows={4}
+								maxRows={8}
+								maxLength={2000}
+								autosize
+							/>
+						</Stack>
 					</Box>
-					<Stack gap={0}>
-						<Text size="sm" fw={600}>
-							24h Story
-						</Text>
-						<Text size="xs" c="dimmed">
-							Disappears after 24 hours
-						</Text>
-					</Stack>
-				</Group>
 
-				{/* Location status */}
-				<Text size="xs" c={location.lat ? "green" : "dimmed"}>
-					{location.lat
-						? `📍 Located at ${location.lat.toFixed(
-								4
-						  )}, ${location.lng?.toFixed(4)}`
-						: "📍 Acquiring location…"}
-				</Text>
+					<Box style={sectionStyle}>
+						<Group gap={10} wrap="nowrap" align="center">
+							<ActionIcon
+								variant="filled"
+								color="brand"
+								radius="xl"
+								size={46}
+								onClick={handleOpenImagePicker}
+								aria-label={
+									prefersCameraCapture
+										? "Open camera"
+										: "Upload images"
+								}
+								title={
+									prefersCameraCapture
+										? "Open camera"
+										: "Upload images"
+								}
+							>
+								{prefersCameraCapture ? (
+									<CameraIcon size={20} />
+								) : (
+									<GalleryIcon size={20} />
+								)}
+							</ActionIcon>
 
-				{error && (
-					<Text c="red" size="sm">
-						{error}
-					</Text>
-				)}
-			</Stack>
+							{mediaUrls.length > 0 && (
+								<Group
+									gap={8}
+									wrap="nowrap"
+									style={{
+										overflowX: "auto",
+										paddingBottom: 2,
+										flex: 1,
+										minWidth: 0
+									}}
+								>
+									{mediaUrls.map((mediaUrl, index) => (
+										<Box
+											key={`${index}-${mediaUrl.slice(
+												0,
+												24
+											)}`}
+											style={{
+												position: "relative",
+												width: 72,
+												height: 72,
+												borderRadius: 12,
+												overflow: "hidden",
+												border: "1px solid var(--gp-border)",
+												background:
+													"rgba(255,255,255,0.03)",
+												flexShrink: 0
+											}}
+										>
+											<img
+												src={mediaUrl}
+												alt={`Selected image ${
+													index + 1
+												}`}
+												style={{
+													width: "100%",
+													height: "100%",
+													objectFit: "cover",
+													display: "block"
+												}}
+											/>
+											<ActionIcon
+												variant="filled"
+												size="xs"
+												radius="xl"
+												color="dark"
+												onClick={() =>
+													removeMediaItem(index)
+												}
+												style={{
+													position: "absolute",
+													top: 6,
+													right: 6,
+													background:
+														"rgba(12,14,18,0.74)",
+													color: "#fffaf2"
+												}}
+												aria-label={`Remove image ${
+													index + 1
+												}`}
+											>
+												<CloseIcon size={12} />
+											</ActionIcon>
+										</Box>
+									))}
+								</Group>
+							)}
+						</Group>
+					</Box>
+
+					<Box style={sectionStyle}>
+						<Box>
+							<Text
+								size="xs"
+								c="dimmed"
+								mb={8}
+								fw={600}
+								style={sectionLabelStyle}
+							>
+								Vibe tags
+							</Text>
+							<Group gap={8}>
+								{POST_TAGS.map((tag) => {
+									const selected = selectedTags.includes(
+										tag.key
+									);
+									return (
+										<button
+											key={tag.key}
+											onClick={() => toggleTag(tag.key)}
+											className={`gp-tag-chip ${
+												selected
+													? "gp-tag-chip--active"
+													: ""
+											}`}
+										>
+											<Box
+												style={{
+													width: 8,
+													height: 8,
+													borderRadius: 999,
+													background: tag.tone,
+													display: "inline-block",
+													marginRight: 8
+												}}
+											/>
+											{tag.label}
+										</button>
+									);
+								})}
+							</Group>
+						</Box>
+					</Box>
+
+					{mode === "local_legend" &&
+						(currentUser?.superPostCredits ?? 0) > 0 && (
+							<Box style={sectionStyle}>
+								<Group gap={12} align="flex-start">
+									<Switch
+										checked={isSuperLocalLegend}
+										onChange={(event) =>
+											setIsSuperLocalLegend(
+												event.currentTarget.checked
+											)
+										}
+										color="brand"
+									/>
+									<Stack gap={0}>
+										<Group gap={6} wrap="nowrap">
+											<SparkIcon size={16} />
+											<Text size="sm" fw={600}>
+												Super Local Legend
+											</Text>
+										</Group>
+										<Text size="xs" c="dimmed">
+											Pins this post to the top for an
+											extra hour.{" "}
+											{currentUser?.superPostCredits}{" "}
+											credit(s) left.
+										</Text>
+									</Stack>
+								</Group>
+							</Box>
+						)}
+
+					{mode === "local_legend" &&
+						(currentUser?.superPostCredits ?? 0) === 0 && (
+							<Badge
+								color="yellow"
+								variant="light"
+								w="fit-content"
+							>
+								Visit the Karma Shop to unlock Super Local
+								Legend boosts
+							</Badge>
+						)}
+
+					{error && (
+						<Alert color="red" variant="light">
+							{error}
+						</Alert>
+					)}
+
+					<Button
+						fullWidth
+						disabled={!canSubmit}
+						loading={isSubmitting}
+						onClick={handleSubmit}
+					>
+						Share story
+					</Button>
+				</Stack>
+			</Box>
 		</Box>
 	);
 };

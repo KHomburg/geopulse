@@ -1,21 +1,31 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
+	ActionIcon,
+	Alert,
 	Avatar,
 	Box,
+	Button,
 	Center,
 	Group,
 	Loader,
+	Paper,
+	Stack,
 	Text,
-	TextInput,
-	ActionIcon
+	TextInput
 } from "@mantine/core";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
 import { messagesApi, type Message } from "../api/messages.api";
 import { subscribeRealtime } from "../realtime/realtime.client";
 import { getApiErrorMessage } from "../utils/apiErrors";
+import {
+	ChevronLeftIcon,
+	MessagesIcon,
+	ProfileIcon,
+	SendIcon
+} from "../components/icons";
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string) {
 	const diff = Date.now() - new Date(dateStr).getTime();
 	const mins = Math.floor(diff / 60_000);
 	if (mins < 1) return "just now";
@@ -46,7 +56,6 @@ const ConversationPage = () => {
 		if (!convId) return;
 		try {
 			const { data } = await messagesApi.getMessages(convId);
-			// Messages come newest-first, reverse for display
 			setMessages([...data.data].reverse());
 			await messagesApi.markRead(convId);
 		} finally {
@@ -121,15 +130,15 @@ const ConversationPage = () => {
 		if (!trimmed || sending || isWriteBlocked) return;
 		setSending(true);
 		try {
-			const { data: msg } = await messagesApi.sendMessage(
+			const { data: message } = await messagesApi.sendMessage(
 				convId,
 				trimmed
 			);
 			setMessages((prev) => {
-				if (prev.some((message) => message.id === msg.id)) {
+				if (prev.some((item) => item.id === message.id)) {
 					return prev;
 				}
-				return [...prev, msg];
+				return [...prev, message];
 			});
 			setContent("");
 			setSendError(null);
@@ -151,205 +160,250 @@ const ConversationPage = () => {
 		void messagesApi.sendTyping(convId);
 	};
 
-	const handleKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === "Enter" && !e.shiftKey) {
-			e.preventDefault();
+	const handleKeyDown = (event: React.KeyboardEvent) => {
+		if (event.key === "Enter" && !event.shiftKey) {
+			event.preventDefault();
 			handleSend();
 		}
 	};
 
 	if (!isAuthenticated) {
 		return (
-			<Center style={{ height: "100%" }} p={24}>
-				<Text c="dimmed">Sign in to view messages</Text>
-			</Center>
+			<Box className="gp-page">
+				<Center className="gp-scroll">
+					<Stack className="gp-empty-state" align="center" gap="md">
+						<Box className="gp-brand-mark">
+							<MessagesIcon size={22} />
+						</Box>
+						<Stack gap={4} align="center">
+							<Text fw={700} size="lg">
+								Sign in to view messages
+							</Text>
+							<Text size="sm" c="dimmed" ta="center">
+								Enter GeoPulse to continue your conversations
+								and start new ones.
+							</Text>
+						</Stack>
+						<Button onClick={() => navigate("/login")}>
+							Enter GeoPulse
+						</Button>
+					</Stack>
+				</Center>
+			</Box>
 		);
 	}
 
 	return (
 		<Box
-			style={{
-				height: "100%",
-				background: "#0a0a0a",
-				display: "flex",
-				flexDirection: "column"
-			}}
+			className="gp-page"
+			style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
 		>
-			{/* Header */}
-			<Box
-				style={{
-					padding: "12px 16px",
-					borderBottom: "1px solid #2a2a2a",
-					display: "flex",
-					alignItems: "center",
-					gap: 12
-				}}
-			>
-				<ActionIcon
-					variant="subtle"
-					color="gray"
-					onClick={() => navigate("/messages")}
-					size="lg"
-				>
-					←
-				</ActionIcon>
-				<Text fw={600} style={{ color: "#fff" }}>
-					Conversation
-				</Text>
+			<Box className="gp-page-header" style={{ paddingBottom: 12 }}>
+				<Group gap={12} wrap="nowrap" align="flex-start">
+					<ActionIcon
+						variant="subtle"
+						size="lg"
+						onClick={() => navigate("/messages")}
+						style={{
+							background: "rgba(255,255,255,0.05)",
+							color: "#fffaf2",
+							flexShrink: 0
+						}}
+					>
+						<ChevronLeftIcon size={18} />
+					</ActionIcon>
+					<Box>
+						<Text className="gp-page-header__eyebrow">
+							Private line
+						</Text>
+						<Text className="gp-page-header__title">
+							Conversation
+						</Text>
+						<Text className="gp-page-header__subtitle">
+							A cleaner message stream with calmer spacing and
+							clearer send states.
+						</Text>
+					</Box>
+				</Group>
 			</Box>
 
-			{/* Messages */}
-			<Box style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+			<Box
+				style={{
+					flex: 1,
+					minHeight: 0,
+					overflowY: "auto",
+					padding: "16px 20px 12px"
+				}}
+			>
 				{loading ? (
-					<Center py={40}>
-						<Loader color="violet" />
+					<Center py={56}>
+						<Loader color="brand" />
 					</Center>
 				) : messages.length === 0 ? (
-					<Center py={40}>
-						<Text c="dimmed" size="sm">
-							No messages yet. Say hello! 👋
-						</Text>
+					<Center py={56}>
+						<Stack
+							className="gp-empty-state"
+							align="center"
+							gap="md"
+						>
+							<Box className="gp-brand-mark">
+								<MessagesIcon size={22} />
+							</Box>
+							<Stack gap={4} align="center">
+								<Text fw={700}>No messages yet</Text>
+								<Text size="sm" c="dimmed" ta="center">
+									Open the conversation with a first message
+									when you are ready.
+								</Text>
+							</Stack>
+						</Stack>
 					</Center>
 				) : (
-					messages.map((msg) => {
-						const isOwn = msg.senderId === userId;
-						return (
-							<Box
-								key={msg.id}
-								style={{
-									display: "flex",
-									justifyContent: isOwn
-										? "flex-end"
-										: "flex-start",
-									marginBottom: 10
-								}}
-							>
-								{!isOwn && (
-									<Avatar
-										radius="xl"
-										size="sm"
-										color="violet"
-										style={{
-											background: "#2a2a2a",
-											marginRight: 8,
-											flexShrink: 0,
-											alignSelf: "flex-end"
-										}}
-									>
-										{msg.sender?.displayName?.[0]?.toUpperCase() ??
-											msg.sender?.username?.[0]?.toUpperCase() ??
-											"?"}
-									</Avatar>
-								)}
-								<Box style={{ maxWidth: "72%" }}>
-									<Box
-										style={{
-											background: isOwn
-												? "linear-gradient(135deg, #6c63ff, #8b85ff)"
-												: "#1e1e1e",
-											borderRadius: isOwn
-												? "16px 16px 4px 16px"
-												: "16px 16px 16px 4px",
-											padding: "10px 14px",
-											border: isOwn
-												? "none"
-												: "1px solid #2a2a2a"
-										}}
-									>
-										<Text
-											size="sm"
+					<Stack gap="sm">
+						{messages.map((message) => {
+							const isOwn = message.senderId === userId;
+							const senderInitial =
+								message.sender?.displayName?.[0]?.toUpperCase() ??
+								message.sender?.username?.[0]?.toUpperCase() ??
+								"?";
+
+							return (
+								<Group
+									key={message.id}
+									justify={isOwn ? "flex-end" : "flex-start"}
+									align="flex-end"
+									wrap="nowrap"
+								>
+									{!isOwn && (
+										<Avatar
+											radius="xl"
+											size={34}
 											style={{
-												color: "#fff",
-												wordBreak: "break-word"
+												background:
+													"rgba(255,255,255,0.05)",
+												color: "#fffaf2",
+												flexShrink: 0
 											}}
 										>
-											{msg.content}
+											{senderInitial === "?" ? (
+												<ProfileIcon size={15} />
+											) : (
+												senderInitial
+											)}
+										</Avatar>
+									)}
+									<Box style={{ maxWidth: "78%" }}>
+										<Box
+											style={{
+												padding: "12px 16px",
+												borderRadius: isOwn
+													? "24px 24px 10px 24px"
+													: "24px 24px 24px 10px",
+												background: isOwn
+													? "linear-gradient(135deg, #c4874d, #d9a066)"
+													: "rgba(20, 20, 24, 0.92)",
+												border: isOwn
+													? "none"
+													: "1px solid rgba(255,255,255,0.08)",
+												boxShadow: isOwn
+													? "0 16px 28px rgba(196,135,77,0.24)"
+													: "none"
+											}}
+										>
+											<Text
+												size="sm"
+												style={{
+													color: isOwn
+														? "#161616"
+														: "#fffaf2",
+													wordBreak: "break-word"
+												}}
+											>
+												{message.content}
+											</Text>
+										</Box>
+										<Text
+											size="xs"
+											c="dimmed"
+											mt={6}
+											ta={isOwn ? "right" : "left"}
+										>
+											{timeAgo(message.createdAt)}
 										</Text>
 									</Box>
-									<Text
-										size="xs"
-										c="dimmed"
-										style={{
-											textAlign: isOwn ? "right" : "left",
-											marginTop: 3
-										}}
-									>
-										{timeAgo(msg.createdAt)}
-									</Text>
-								</Box>
+								</Group>
+							);
+						})}
+						{typingUserId !== null && (
+							<Box className="gp-mini-pill" w="fit-content">
+								<Text size="xs" c="inherit">
+									Someone is typing...
+								</Text>
 							</Box>
-						);
-					})
-				)}
-				{typingUserId !== null && (
-					<Text c="dimmed" size="xs" mt={8}>
-						User is typing...
-					</Text>
+						)}
+					</Stack>
 				)}
 				<div ref={bottomRef} />
 			</Box>
 
-			{/* Input */}
-			<Box
-				style={{
-					padding: "12px 16px",
-					borderTop: "1px solid #2a2a2a",
-					background: "rgba(10,10,10,0.98)"
-				}}
-			>
-				{accountNotice?.kind === "read_only" && (
-					<Text c="yellow" size="xs" mb={8}>
-						{accountNotice.message}
-					</Text>
-				)}
-				{sendError && (
-					<Text c="red" size="xs" mb={8}>
-						{sendError}
-					</Text>
-				)}
-				<Group gap={8} wrap="nowrap">
-					<TextInput
-						style={{ flex: 1 }}
-						placeholder={
-							isWriteBlocked
-								? "Messaging is disabled while your account is read-only"
-								: "Type a message…"
-						}
-						value={content}
-						disabled={isWriteBlocked}
-						onChange={(e) =>
-							handleContentChange(e.currentTarget.value)
-						}
-						onKeyDown={handleKeyDown}
-						styles={{
-							input: {
-								background: "#1a1a1a",
-								border: "1px solid #2a2a2a",
-								color: "#fff",
-								borderRadius: 20,
-								paddingLeft: 16,
-								paddingRight: 16,
-								"&:focus": { borderColor: "#6c63ff" }
-							}
-						}}
-					/>
-					<ActionIcon
-						size="lg"
-						radius="xl"
-						disabled={isWriteBlocked || !content.trim() || sending}
-						onClick={handleSend}
-						style={{
-							background:
-								content.trim() && !isWriteBlocked
-									? "linear-gradient(135deg, #6c63ff, #8b85ff)"
-									: "#2a2a2a",
-							color: "#fff",
-							flexShrink: 0
-						}}
-					>
-						{sending ? "…" : "↑"}
-					</ActionIcon>
-				</Group>
+			<Box style={{ padding: "0 20px 20px" }}>
+				<Paper className="gp-surface gp-surface--strong" p="md">
+					<Stack gap="sm">
+						{accountNotice?.kind === "read_only" && (
+							<Alert color="yellow" variant="light">
+								{accountNotice.message}
+							</Alert>
+						)}
+						{sendError && (
+							<Alert color="red" variant="light">
+								{sendError}
+							</Alert>
+						)}
+						<Group gap={10} wrap="nowrap" align="flex-end">
+							<TextInput
+								style={{ flex: 1 }}
+								placeholder={
+									isWriteBlocked
+										? "Messaging is disabled while your account is read-only"
+										: "Type a message"
+								}
+								value={content}
+								disabled={isWriteBlocked}
+								onChange={(event) =>
+									handleContentChange(
+										event.currentTarget.value
+									)
+								}
+								onKeyDown={handleKeyDown}
+							/>
+							<ActionIcon
+								size={44}
+								radius="xl"
+								disabled={
+									isWriteBlocked || !content.trim() || sending
+								}
+								onClick={handleSend}
+								style={{
+									background:
+										content.trim() && !isWriteBlocked
+											? "linear-gradient(135deg, #c4874d, #d9a066)"
+											: "rgba(255,255,255,0.06)",
+									color:
+										content.trim() && !isWriteBlocked
+											? "#161616"
+											: "rgba(255,250,242,0.55)",
+									flexShrink: 0
+								}}
+							>
+								{sending ? (
+									<Loader size={16} color="currentColor" />
+								) : (
+									<SendIcon size={18} />
+								)}
+							</ActionIcon>
+						</Group>
+					</Stack>
+				</Paper>
 			</Box>
 		</Box>
 	);

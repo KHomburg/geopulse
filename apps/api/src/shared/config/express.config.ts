@@ -97,12 +97,12 @@ App.use(
 );
 
 // Parse incoming request with json payload
-App.use(express.json({ limit: "1mb" }));
+App.use(express.json({ limit: "10mb" }));
 
 // Get the json payload with Content-Type header
 // Preventing to get undefined value in request
-App.use(bodyParser.urlencoded({ extended: true, limit: "1mb" }));
-App.use(bodyParser.json({ limit: "1mb" }));
+App.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
+App.use(bodyParser.json({ limit: "10mb" }));
 
 //#endregion
 

@@ -1,27 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
-	ActionIcon,
+	Avatar,
 	Badge,
 	Box,
 	Button,
 	Center,
+	Group,
+	Paper,
 	Stack,
-	Text,
-	Avatar,
-	Divider,
-	Group
+	Text
 } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
 import { userApi, type CurrentUser } from "../api/user.api";
+import {
+	AnonymousIcon,
+	BookmarkIcon,
+	ChevronRightIcon,
+	GlobeIcon,
+	ProfileIcon,
+	ShieldIcon,
+	SparkIcon,
+	TicketIcon
+} from "../components/icons";
 
-const profileMenuCardStyle = {
-	background: "#141414",
-	border: "1px solid #2a2a2a",
-	borderRadius: 12,
-	padding: "12px 16px",
-	cursor: "pointer"
-} as const;
+type ProfileMenuItem = {
+	title: string;
+	description: string;
+	icon: ReactNode;
+	onClick: () => void;
+};
 
 const ProfilePage = () => {
 	const { email, userId, isAuthenticated, logout } = useAuthStore();
@@ -38,38 +46,35 @@ const ProfilePage = () => {
 
 	if (!isAuthenticated) {
 		return (
-			<Center style={{ height: "100%", flexDirection: "column" }} p={24}>
-				<Stack align="center" gap="md">
-					<Text size="xl">👤</Text>
-					<Text fw={700} size="lg">
-						Sign in to GeoPulse
-					</Text>
-					<Text c="dimmed" size="sm" ta="center">
-						Create an account to post pulses and interact with your
-						community.
-					</Text>
-					<Button
-						fullWidth
-						onClick={() => navigate("/login")}
-						style={{
-							background:
-								"linear-gradient(135deg, #6c63ff 0%, #8b85ff 100%)",
-							height: 48
-						}}
-					>
-						Sign In
-					</Button>
-					<Button
-						fullWidth
-						variant="outline"
-						color="violet"
-						onClick={() => navigate("/register")}
-						style={{ height: 44 }}
-					>
-						Create Account
-					</Button>
-				</Stack>
-			</Center>
+			<Box className="gp-page">
+				<Center className="gp-scroll">
+					<Stack className="gp-empty-state" align="center" gap="md">
+						<Box className="gp-brand-mark">
+							<ProfileIcon size={22} />
+						</Box>
+						<Stack gap={4} align="center">
+							<Text fw={700} size="lg">
+								Sign in to GeoPulse
+							</Text>
+							<Text size="sm" c="dimmed" ta="center">
+								Create an account to publish pulses, save posts,
+								and shape your local identity.
+							</Text>
+						</Stack>
+						<Button fullWidth onClick={() => navigate("/login")}>
+							Enter GeoPulse
+						</Button>
+						<Button
+							fullWidth
+							variant="subtle"
+							color="brand"
+							onClick={() => navigate("/register")}
+						>
+							Create account
+						</Button>
+					</Stack>
+				</Center>
+			</Box>
 		);
 	}
 
@@ -78,272 +83,196 @@ const ProfilePage = () => {
 		navigate("/map");
 	};
 
-	return (
-		<Box
-			style={{
-				height: "100%",
-				background: "#0a0a0a",
-				overflowY: "auto",
-				padding: "24px 16px"
-			}}
+	const momentumItems: ProfileMenuItem[] = [
+		{
+			title: "Karma Shop",
+			description: "Spend karma on map pin perks and super-post boosts.",
+			icon: <TicketIcon size={18} />,
+			onClick: () => navigate("/profile/karmashop")
+		},
+		{
+			title: "Trusted Locals",
+			description: "Enter the 500+ karma feed and private room.",
+			icon: <ShieldIcon size={18} />,
+			onClick: () => navigate("/profile/trusted-locals")
+		},
+		{
+			title: "Ghost Mode",
+			description:
+				"Share a fuzzy live pin with accepted friends for a set time.",
+			icon: <AnonymousIcon size={18} />,
+			onClick: () => navigate("/profile/ghost-mode")
+		}
+	];
+
+	const spaceItems: ProfileMenuItem[] = [
+		{
+			title: "People",
+			description: "Manage contacts and friend requests.",
+			icon: <ProfileIcon size={18} />,
+			onClick: () => navigate("/contacts")
+		},
+		{
+			title: "Saved",
+			description: "Revisit posts you kept for later.",
+			icon: <BookmarkIcon size={18} />,
+			onClick: () => navigate("/bookmarks")
+		}
+	];
+
+	const accountItems: ProfileMenuItem[] = [
+		{
+			title: "Privacy Policy",
+			description:
+				"Review how the app handles location and identity data.",
+			icon: <ShieldIcon size={18} />,
+			onClick: () => undefined
+		},
+		{
+			title: "About GeoPulse",
+			description: "Read the product story and platform direction.",
+			icon: <GlobeIcon size={18} />,
+			onClick: () => undefined
+		}
+	];
+
+	const renderMenuItem = (item: ProfileMenuItem) => (
+		<Paper
+			component="button"
+			type="button"
+			key={item.title}
+			className="gp-surface"
+			p="lg"
+			onClick={item.onClick}
+			style={{ textAlign: "left", width: "100%", cursor: "pointer" }}
 		>
-			<Stack align="center" mb={32} gap={12}>
-				<Avatar
-					radius="xl"
-					size={72}
-					color="violet"
-					style={{
-						background: "#2a2a2a",
-						border: "2px solid #6c63ff"
-					}}
+			<Group justify="space-between" align="flex-start" wrap="nowrap">
+				<Group
+					gap={12}
+					align="flex-start"
+					wrap="nowrap"
+					style={{ flex: 1, minWidth: 0 }}
 				>
-					{email?.[0]?.toUpperCase() ?? "?"}
-				</Avatar>
-				<Stack align="center" gap={4}>
-					<Text fw={700} size="lg">
-						{email}
-					</Text>
-					<Text c="dimmed" size="sm">
-						User #{userId}
-					</Text>
-					<Group gap={8} mt={6}>
-						<Badge color="yellow" variant="light">
-							{profile?.karmaScore ?? 0} karma
-						</Badge>
-						<Badge
-							color={profile?.isTrusted ? "green" : "gray"}
-							variant="light"
-						>
-							{profile?.isTrusted
-								? "Trusted Local"
-								: "Local in progress"}
-						</Badge>
-					</Group>
+					<Box
+						style={{
+							width: 42,
+							height: 42,
+							borderRadius: 14,
+							background: "rgba(255,255,255,0.05)",
+							border: "1px solid rgba(255,255,255,0.08)",
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							color: "#fffaf2",
+							flexShrink: 0
+						}}
+					>
+						{item.icon}
+					</Box>
+					<Box style={{ minWidth: 0 }}>
+						<Text fw={700}>{item.title}</Text>
+						<Text size="sm" c="dimmed" mt={4}>
+							{item.description}
+						</Text>
+					</Box>
+				</Group>
+				<ChevronRightIcon
+					size={18}
+					style={{ color: "rgba(255,250,242,0.55)", flexShrink: 0 }}
+				/>
+			</Group>
+		</Paper>
+	);
+
+	return (
+		<Box className="gp-page">
+			<Box className="gp-page-header">
+				<Text className="gp-page-header__eyebrow">Your space</Text>
+				<Text className="gp-page-header__title">Profile</Text>
+				<Text className="gp-page-header__subtitle">
+					Your account, saved momentum, and private perks brought into
+					the same polished visual system.
+				</Text>
+			</Box>
+
+			<Box className="gp-scroll" style={{ paddingTop: 16 }}>
+				<Stack gap="lg">
+					<Paper className="gp-surface gp-surface--strong" p="xl">
+						<Group gap={16} align="center" wrap="nowrap">
+							<Avatar
+								radius={28}
+								size={72}
+								style={{
+									background:
+										"linear-gradient(135deg, #c4874d, #65b8b0)",
+									color: "#161616",
+									flexShrink: 0
+								}}
+							>
+								{email?.[0]?.toUpperCase() ?? "?"}
+							</Avatar>
+							<Box>
+								<Text fw={700} size="lg">
+									{email}
+								</Text>
+								<Text size="sm" c="dimmed" mt={2}>
+									User #{userId}
+								</Text>
+								<Group gap={8} mt={10}>
+									<Badge color="brand" variant="light">
+										{profile?.karmaScore ?? 0} karma
+									</Badge>
+									<Badge
+										color={
+											profile?.isTrusted ? "teal" : "gray"
+										}
+										variant="light"
+									>
+										{profile?.isTrusted
+											? "Trusted Local"
+											: "Local in progress"}
+									</Badge>
+								</Group>
+							</Box>
+						</Group>
+						<Box className="gp-mini-pill" w="fit-content" mt={16}>
+							<SparkIcon size={14} />
+							<Text size="xs" c="inherit">
+								Momentum is tied to karma, trust, and the spaces
+								you unlock.
+							</Text>
+						</Box>
+					</Paper>
+
+					<Stack gap="sm">
+						<Text className="gp-page-header__eyebrow">
+							Momentum
+						</Text>
+						{momentumItems.map(renderMenuItem)}
+					</Stack>
+
+					<Stack gap="sm">
+						<Text className="gp-page-header__eyebrow">
+							Your space
+						</Text>
+						{spaceItems.map(renderMenuItem)}
+					</Stack>
+
+					<Stack gap="sm">
+						<Text className="gp-page-header__eyebrow">Account</Text>
+						{accountItems.map(renderMenuItem)}
+					</Stack>
+
+					<Button
+						variant="outline"
+						color="red"
+						onClick={handleLogout}
+						fullWidth
+					>
+						Sign out
+					</Button>
 				</Stack>
-			</Stack>
-
-			<Divider color="#2a2a2a" mb={24} />
-
-			<Stack gap="xs">
-				<Text
-					size="xs"
-					c="dimmed"
-					fw={600}
-					style={{ textTransform: "uppercase", letterSpacing: 0.5 }}
-					mb={8}
-				>
-					Momentum
-				</Text>
-
-				<Box
-					style={profileMenuCardStyle}
-					onClick={() => navigate("/profile/karmashop")}
-				>
-					<Group justify="space-between" wrap="nowrap">
-						<Group gap={12} wrap="nowrap">
-							<ActionIcon
-								variant="light"
-								color="yellow"
-								radius="xl"
-							>
-								✦
-							</ActionIcon>
-							<Box>
-								<Text size="sm" fw={600}>
-									Karma Shop
-								</Text>
-								<Text size="xs" c="dimmed">
-									Spend karma on map pin perks and super-post
-									boosts
-								</Text>
-							</Box>
-						</Group>
-						<Text c="dimmed" size="sm">
-							›
-						</Text>
-					</Group>
-				</Box>
-
-				<Box
-					style={profileMenuCardStyle}
-					onClick={() => navigate("/profile/trusted-locals")}
-				>
-					<Group justify="space-between" wrap="nowrap">
-						<Group gap={12} wrap="nowrap">
-							<ActionIcon
-								variant="light"
-								color="green"
-								radius="xl"
-							>
-								🛡
-							</ActionIcon>
-							<Box>
-								<Text size="sm" fw={600}>
-									Trusted Locals
-								</Text>
-								<Text size="xs" c="dimmed">
-									Enter the 500+ karma feed and private room
-								</Text>
-							</Box>
-						</Group>
-						<Text c="dimmed" size="sm">
-							›
-						</Text>
-					</Group>
-				</Box>
-
-				<Box
-					style={profileMenuCardStyle}
-					onClick={() => navigate("/profile/ghost-mode")}
-				>
-					<Group justify="space-between" wrap="nowrap">
-						<Group gap={12} wrap="nowrap">
-							<ActionIcon
-								variant="light"
-								color="gray"
-								radius="xl"
-							>
-								👻
-							</ActionIcon>
-							<Box>
-								<Text size="sm" fw={600}>
-									Ghost Mode
-								</Text>
-								<Text size="xs" c="dimmed">
-									Share a fuzzy live pin with accepted friends
-									for a set time
-								</Text>
-							</Box>
-						</Group>
-						<Text c="dimmed" size="sm">
-							›
-						</Text>
-					</Group>
-				</Box>
-
-				<Text
-					size="xs"
-					c="dimmed"
-					fw={600}
-					style={{ textTransform: "uppercase", letterSpacing: 0.5 }}
-					mb={8}
-				>
-					Your space
-				</Text>
-
-				<Box
-					style={profileMenuCardStyle}
-					onClick={() => navigate("/contacts")}
-				>
-					<Group justify="space-between" wrap="nowrap">
-						<Group gap={12} wrap="nowrap">
-							<ActionIcon
-								variant="light"
-								color="violet"
-								radius="xl"
-							>
-								👥
-							</ActionIcon>
-							<Box>
-								<Text size="sm" fw={600}>
-									People
-								</Text>
-								<Text size="xs" c="dimmed">
-									Manage contacts and friend requests
-								</Text>
-							</Box>
-						</Group>
-						<Text c="dimmed" size="sm">
-							›
-						</Text>
-					</Group>
-				</Box>
-
-				<Box
-					style={profileMenuCardStyle}
-					onClick={() => navigate("/bookmarks")}
-				>
-					<Group justify="space-between" wrap="nowrap">
-						<Group gap={12} wrap="nowrap">
-							<ActionIcon
-								variant="light"
-								color="violet"
-								radius="xl"
-							>
-								🔖
-							</ActionIcon>
-							<Box>
-								<Text size="sm" fw={600}>
-									Saved
-								</Text>
-								<Text size="xs" c="dimmed">
-									Revisit posts you kept for later
-								</Text>
-							</Box>
-						</Group>
-						<Text c="dimmed" size="sm">
-							›
-						</Text>
-					</Group>
-				</Box>
-
-				<Text
-					size="xs"
-					c="dimmed"
-					fw={600}
-					style={{ textTransform: "uppercase", letterSpacing: 0.5 }}
-					mb={8}
-				>
-					Account
-				</Text>
-
-				<Box
-					style={{
-						background: "#141414",
-						border: "1px solid #2a2a2a",
-						borderRadius: 12,
-						padding: "12px 16px"
-					}}
-				>
-					<Group justify="space-between">
-						<Text size="sm">Privacy Policy</Text>
-						<Text c="dimmed" size="sm">
-							›
-						</Text>
-					</Group>
-				</Box>
-
-				<Box
-					style={{
-						background: "#141414",
-						border: "1px solid #2a2a2a",
-						borderRadius: 12,
-						padding: "12px 16px"
-					}}
-				>
-					<Group justify="space-between">
-						<Text size="sm">About GeoPulse</Text>
-						<Text c="dimmed" size="sm">
-							›
-						</Text>
-					</Group>
-				</Box>
-
-				<Button
-					variant="outline"
-					color="red"
-					mt={16}
-					onClick={handleLogout}
-					fullWidth
-					style={{
-						borderColor: "#ff475740",
-						color: "#ff4757",
-						height: 44
-					}}
-				>
-					Sign Out
-				</Button>
-			</Stack>
+			</Box>
 		</Box>
 	);
 };

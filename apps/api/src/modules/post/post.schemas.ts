@@ -23,7 +23,7 @@ export const CreatePostSchema = z
 		isSuperLocalLegend: z.boolean().default(false),
 		lat: z.number().min(-90).max(90),
 		lng: z.number().min(-180).max(180),
-		isStory: z.boolean().default(false)
+		isStory: z.boolean().default(true)
 	})
 	.superRefine((value, ctx) => {
 		if (

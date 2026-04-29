@@ -6,6 +6,7 @@ import {
 	Center,
 	Group,
 	Loader,
+	Paper,
 	Stack,
 	Text
 } from "@mantine/core";
@@ -13,8 +14,13 @@ import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
 import { messagesApi, type Conversation } from "../api/messages.api";
 import { subscribeRealtime } from "../realtime/realtime.client";
+import {
+	ChevronRightIcon,
+	MessagesIcon,
+	ProfileIcon
+} from "../components/icons";
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string) {
 	const diff = Date.now() - new Date(dateStr).getTime();
 	const mins = Math.floor(diff / 60_000);
 	if (mins < 1) return "just now";
@@ -26,17 +32,17 @@ function timeAgo(dateStr: string): string {
 
 function getOtherParticipant(conv: Conversation, myId: number) {
 	const participants = conv.allParticipants ?? conv.participants ?? [];
-	return participants.find((p) => p.userId !== myId);
+	return participants.find((participant) => participant.userId !== myId);
 }
 
-function participantLabel(conv: Conversation, myId: number): string {
+function participantLabel(conv: Conversation, myId: number) {
 	const other = getOtherParticipant(conv, myId);
 	if (!other?.user) return "Conversation";
-	const u = other.user;
-	return u.displayName ?? u.username ?? `User #${u.id}`;
+	const user = other.user;
+	return user.displayName ?? user.username ?? `User #${user.id}`;
 }
 
-function participantInitials(conv: Conversation, myId: number): string {
+function participantInitials(conv: Conversation, myId: number) {
 	return participantLabel(conv, myId)[0]?.toUpperCase() ?? "?";
 }
 
@@ -73,157 +79,180 @@ const MessagesPage = () => {
 
 	if (!isAuthenticated) {
 		return (
-			<Center style={{ height: "100%" }} p={24}>
-				<Stack align="center" gap="md">
-					<Text size="xl">💬</Text>
-					<Text fw={700} size="lg">
-						Sign in to see messages
-					</Text>
-					<Button
-						onClick={() => navigate("/login")}
-						style={{
-							background:
-								"linear-gradient(135deg, #6c63ff 0%, #8b85ff 100%)",
-							height: 48
-						}}
-					>
-						Sign In
-					</Button>
-				</Stack>
-			</Center>
+			<Box className="gp-page">
+				<Center className="gp-scroll">
+					<Stack className="gp-empty-state" align="center" gap="md">
+						<Box className="gp-brand-mark">
+							<MessagesIcon size={22} />
+						</Box>
+						<Stack gap={4} align="center">
+							<Text fw={700} size="lg">
+								Sign in to see messages
+							</Text>
+							<Text size="sm" c="dimmed" ta="center">
+								Keep your direct lines, local replies, and
+								planning threads in one place.
+							</Text>
+						</Stack>
+						<Button onClick={() => navigate("/login")}>
+							Enter GeoPulse
+						</Button>
+					</Stack>
+				</Center>
+			</Box>
 		);
 	}
 
 	return (
-		<Box
-			style={{
-				height: "100%",
-				background: "#0a0a0a",
-				display: "flex",
-				flexDirection: "column"
-			}}
-		>
-			<Box style={{ padding: "20px 16px 12px" }}>
-				<Text fw={700} size="xl" style={{ color: "#fff" }}>
-					Messages
+		<Box className="gp-page">
+			<Box className="gp-page-header">
+				<Text className="gp-page-header__eyebrow">Direct lines</Text>
+				<Text className="gp-page-header__title">Messages</Text>
+				<Text className="gp-page-header__subtitle">
+					Private conversations arranged like a polished inbox instead
+					of a raw activity dump.
 				</Text>
 			</Box>
 
-			<Box style={{ flex: 1, overflowY: "auto" }}>
+			<Box className="gp-scroll" style={{ paddingTop: 16 }}>
 				{loading ? (
-					<Center py={40}>
-						<Loader color="violet" />
+					<Center py={56}>
+						<Loader color="brand" />
 					</Center>
 				) : conversations.length === 0 ? (
-					<Center py={60}>
-						<Stack align="center" gap="xs">
-							<Text size="2xl">💬</Text>
-							<Text fw={600} c="dimmed">
-								No messages yet
-							</Text>
-							<Text size="sm" c="dimmed" ta="center">
-								Go to Contacts to start a conversation
-							</Text>
+					<Center py={56}>
+						<Stack
+							className="gp-empty-state"
+							align="center"
+							gap="md"
+						>
+							<Box className="gp-brand-mark">
+								<MessagesIcon size={22} />
+							</Box>
+							<Stack gap={4} align="center">
+								<Text fw={700}>No messages yet</Text>
+								<Text size="sm" c="dimmed" ta="center">
+									Go to Contacts to start a conversation and
+									build your local circle.
+								</Text>
+							</Stack>
 							<Button
-								variant="outline"
-								color="violet"
-								mt={8}
+								variant="subtle"
+								color="brand"
 								onClick={() => navigate("/contacts")}
 							>
-								View Contacts
+								View contacts
 							</Button>
 						</Stack>
 					</Center>
 				) : (
-					<Stack gap={0}>
-						{conversations.map((conv) => {
-							const lastMsg = conv.lastMessage?.[0] ?? null;
-							const label = participantLabel(conv, userId!);
-							const initials = participantInitials(conv, userId!);
+					<Stack gap="sm">
+						{conversations.map((conversation) => {
+							const lastMessage =
+								conversation.lastMessage?.[0] ?? null;
+							const label = participantLabel(
+								conversation,
+								userId!
+							);
+							const initials = participantInitials(
+								conversation,
+								userId!
+							);
+							const preview = lastMessage
+								? `${
+										lastMessage.senderId === userId
+											? "You: "
+											: ""
+								  }${lastMessage.content}`
+								: "No messages yet";
 
 							return (
-								<Box
-									key={conv.id}
+								<Paper
+									component="button"
+									type="button"
+									key={conversation.id}
+									className="gp-surface"
+									p="lg"
 									onClick={() =>
-										navigate(`/messages/${conv.id}`)
+										navigate(`/messages/${conversation.id}`)
 									}
 									style={{
-										padding: "14px 16px",
-										borderBottom: "1px solid #1a1a1a",
-										cursor: "pointer",
-										transition: "background 0.15s"
+										textAlign: "left",
+										width: "100%",
+										cursor: "pointer"
 									}}
-									onMouseEnter={(e) =>
-										((
-											e.currentTarget as HTMLElement
-										).style.background = "#141414")
-									}
-									onMouseLeave={(e) =>
-										((
-											e.currentTarget as HTMLElement
-										).style.background = "transparent")
-									}
 								>
-									<Group gap={12} wrap="nowrap">
-										<Avatar
-											radius="xl"
-											size="md"
-											color="violet"
-											style={{
-												background: "#2a2a2a",
-												flexShrink: 0
-											}}
+									<Group
+										justify="space-between"
+										wrap="nowrap"
+										align="flex-start"
+									>
+										<Group
+											gap={12}
+											wrap="nowrap"
+											align="flex-start"
+											style={{ flex: 1, minWidth: 0 }}
 										>
-											{initials}
-										</Avatar>
-										<Box style={{ flex: 1, minWidth: 0 }}>
-											<Group
-												justify="space-between"
-												wrap="nowrap"
-												mb={2}
-											>
-												<Text
-													size="sm"
-													fw={600}
-													style={{
-														overflow: "hidden",
-														textOverflow:
-															"ellipsis",
-														whiteSpace: "nowrap"
-													}}
-												>
-													{label}
-												</Text>
-												{lastMsg && (
-													<Text
-														size="xs"
-														c="dimmed"
-														style={{
-															flexShrink: 0
-														}}
-													>
-														{timeAgo(
-															lastMsg.createdAt
-														)}
-													</Text>
-												)}
-											</Group>
-											<Text
-												size="xs"
-												c="dimmed"
+											<Avatar
+												radius="xl"
+												size={46}
 												style={{
-													overflow: "hidden",
-													textOverflow: "ellipsis",
-													whiteSpace: "nowrap"
+													background:
+														"rgba(255,255,255,0.05)",
+													color: "#fffaf2",
+													flexShrink: 0
 												}}
 											>
-												{lastMsg
-													? lastMsg.content
-													: "No messages yet"}
-											</Text>
-										</Box>
+												{initials === "?" ? (
+													<ProfileIcon size={18} />
+												) : (
+													initials
+												)}
+											</Avatar>
+											<Box
+												style={{ flex: 1, minWidth: 0 }}
+											>
+												<Group
+													justify="space-between"
+													wrap="nowrap"
+													gap={12}
+												>
+													<Text fw={700} truncate>
+														{label}
+													</Text>
+													{lastMessage && (
+														<Text
+															size="xs"
+															c="dimmed"
+															style={{
+																flexShrink: 0
+															}}
+														>
+															{timeAgo(
+																lastMessage.createdAt
+															)}
+														</Text>
+													)}
+												</Group>
+												<Text
+													size="sm"
+													c="dimmed"
+													truncate
+													mt={4}
+												>
+													{preview}
+												</Text>
+											</Box>
+										</Group>
+										<ChevronRightIcon
+											size={18}
+											style={{
+												color: "rgba(255,250,242,0.58)",
+												flexShrink: 0
+											}}
+										/>
 									</Group>
-								</Box>
+								</Paper>
 							);
 						})}
 					</Stack>

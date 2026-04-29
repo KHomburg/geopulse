@@ -38,6 +38,22 @@ const AUTHOR_ATTRS = [
 	"usernameColor"
 ];
 
+const POST_VISIBILITY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function activeVisibilityWindowWhere(now = new Date()) {
+	const visibilityFloor = new Date(now.getTime() - POST_VISIBILITY_WINDOW_MS);
+
+	return {
+		[Op.or]: [
+			{ expiresAt: { [Op.gt]: now } },
+			{
+				expiresAt: null,
+				createdAt: { [Op.gte]: visibilityFloor }
+			}
+		]
+	};
+}
+
 function commentCountAttributes() {
 	return {
 		include: [
@@ -67,28 +83,27 @@ export const PostRepository = {
 		id: number,
 		requesterId?: number
 	): Promise<Post | null> {
+		const moderationWhere =
+			requesterId == null
+				? { moderationStatus: PUBLISHED_MODERATION_STATUS }
+				: {
+						[Op.or]: [
+							{
+								moderationStatus: PUBLISHED_MODERATION_STATUS
+							},
+							{
+								userId: requesterId,
+								moderationStatus: "shadow_hidden"
+							}
+						]
+				  };
+
 		return Post.findOne({
-			where:
-				requesterId == null
-					? {
-							id,
-							isActive: true,
-							moderationStatus: PUBLISHED_MODERATION_STATUS
-					  }
-					: {
-							id,
-							isActive: true,
-							[Op.or]: [
-								{
-									moderationStatus:
-										PUBLISHED_MODERATION_STATUS
-								},
-								{
-									userId: requesterId,
-									moderationStatus: "shadow_hidden"
-								}
-							]
-					  },
+			where: {
+				id,
+				isActive: true,
+				[Op.and]: [moderationWhere, activeVisibilityWindowWhere()]
+			},
 			attributes: commentCountAttributes(),
 			include: [
 				{
@@ -178,6 +193,7 @@ export const PostRepository = {
 				isActive: true,
 				[Op.and]: [
 					visibilityWhere,
+					activeVisibilityWindowWhere(),
 					{
 						obfuscatedLat: {
 							[Op.between]: [params.minLat, params.maxLat]
@@ -241,6 +257,7 @@ export const PostRepository = {
 			where: {
 				isActive: true,
 				moderationStatus: PUBLISHED_MODERATION_STATUS,
+				[Op.and]: [activeVisibilityWindowWhere()],
 				obfuscatedLat: { [Op.between]: [params.minLat, params.maxLat] },
 				obfuscatedLng: { [Op.between]: [params.minLng, params.maxLng] },
 				createdAt: { [Op.gte]: params.since }

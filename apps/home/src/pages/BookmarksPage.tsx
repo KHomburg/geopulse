@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+	ActionIcon,
 	Box,
 	Center,
 	Loader,
@@ -13,6 +14,13 @@ import {
 import { bookmarksApi } from "../api/bookmarks.api";
 import type { Post } from "../api/posts.api";
 import PostMediaGallery from "../components/PostMediaGallery";
+import {
+	AnonymousIcon,
+	BookmarkFilledIcon,
+	GlobeIcon,
+	LocationIcon,
+	SparkIcon
+} from "../components/icons";
 
 function timeAgo(dateStr: string): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
@@ -26,25 +34,40 @@ function timeAgo(dateStr: string): string {
 
 const BookmarkCard = ({ post }: { post: Post }) => (
 	<Paper
+		className="gp-surface gp-surface--strong"
 		style={{
-			background: "#141414",
-			border: "1px solid #2a2a2a",
-			padding: 16,
-			marginBottom: 12
+			padding: 18,
+			marginBottom: 14,
+			borderRadius: 28
 		}}
 		radius="lg"
 	>
-		<Group justify="space-between" mb={10} wrap="nowrap">
+		<Group justify="space-between" mb={12} wrap="nowrap" align="flex-start">
 			<Group gap={10} wrap="nowrap">
 				<Avatar
 					radius="xl"
-					size="sm"
-					color="violet"
-					style={{ background: "#2a2a2a", flexShrink: 0 }}
+					size={44}
+					style={{
+						background:
+							post.anonymityMode === "anonymous"
+								? "linear-gradient(135deg, #7a808c 0%, rgba(255,255,255,0.08) 100%)"
+								: post.anonymityMode === "local_legend"
+								? "linear-gradient(135deg, #c4874d 0%, rgba(255,255,255,0.08) 100%)"
+								: "linear-gradient(135deg, #65b8b0 0%, rgba(255,255,255,0.08) 100%)",
+						color: "#fffaf2",
+						flexShrink: 0,
+						border: "1px solid rgba(255,250,242,0.12)"
+					}}
 				>
-					{post.anonymityMode === "anonymous" ? "?" : "●"}
+					{post.anonymityMode === "anonymous" ? (
+						<AnonymousIcon size={18} />
+					) : post.anonymityMode === "local_legend" ? (
+						<SparkIcon size={18} />
+					) : (
+						<GlobeIcon size={18} />
+					)}
 				</Avatar>
-				<Stack gap={0}>
+				<Stack gap={4}>
 					<Text size="sm" fw={600} style={{ lineHeight: 1.3 }}>
 						{post.anonymityMode === "anonymous"
 							? "Anonymous"
@@ -55,16 +78,25 @@ const BookmarkCard = ({ post }: { post: Post }) => (
 					<Text size="xs" c="dimmed">
 						{timeAgo(post.createdAt)}
 					</Text>
+					<Box
+						className="gp-mini-pill"
+						style={{ padding: "6px 10px" }}
+					>
+						<LocationIcon size={14} />
+						<Text size="xs" c="inherit">
+							{post.lat.toFixed(3)}, {post.lng.toFixed(3)}
+						</Text>
+					</Box>
 				</Stack>
 			</Group>
 			<Group gap={6} wrap="nowrap">
 				<Badge
-					variant="outline"
+					variant="light"
 					color={
 						post.anonymityMode === "anonymous"
 							? "gray"
 							: post.anonymityMode === "local_legend"
-							? "violet"
+							? "brand"
 							: "blue"
 					}
 					size="xs"
@@ -97,16 +129,17 @@ const BookmarkCard = ({ post }: { post: Post }) => (
 				<PostMediaGallery mediaUrls={post.mediaUrls} />
 			</Box>
 		)}
-		<Group justify="space-between" mt={10}>
-			<Text size="xs" style={{ color: "#6c63ff" }} fw={600}>
-				▲ {post.karmaScore}
-			</Text>
-			<Text size="xs" c="dimmed">
-				📍 {post.lat.toFixed(3)}, {post.lng.toFixed(3)}
-			</Text>
-			<Text size="xs" c="dimmed">
-				💬 {post.commentCount}
-			</Text>
+		<Group justify="space-between" mt={14}>
+			<Box className="gp-mini-pill">Score {post.karmaScore}</Box>
+			<Box className="gp-mini-pill">Comments {post.commentCount}</Box>
+			<ActionIcon
+				variant="filled"
+				size="lg"
+				title="Saved post"
+				style={{ pointerEvents: "none" }}
+			>
+				<BookmarkFilledIcon size={16} />
+			</ActionIcon>
 		</Group>
 	</Paper>
 );
@@ -125,53 +158,42 @@ const BookmarksPage = () => {
 	}, []);
 
 	return (
-		<Box
-			style={{
-				height: "100%",
-				display: "flex",
-				flexDirection: "column",
-				background: "#0a0a0a"
-			}}
-		>
-			<Box
-				style={{
-					position: "sticky",
-					top: 0,
-					zIndex: 10,
-					background: "rgba(10,10,10,0.95)",
-					backdropFilter: "blur(12px)",
-					borderBottom: "1px solid #2a2a2a",
-					padding: "12px 16px"
-				}}
-			>
-				<Text fw={700} size="md" style={{ color: "#f0f0f0" }}>
-					🔖 Saved Posts
+		<Box className="gp-page">
+			<Box className="gp-page-header">
+				<Text className="gp-page-header__eyebrow">Library</Text>
+				<Text className="gp-page-header__title">Bookmarks</Text>
+				<Text className="gp-page-header__subtitle">
+					Your saved posts now live in the same polished card system
+					as the main feed.
 				</Text>
 			</Box>
 
-			<Box style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+			<Box className="gp-scroll" style={{ paddingTop: 16 }}>
 				{loading ? (
 					<Center pt={80}>
 						<Loader color="violet" size="sm" />
 					</Center>
 				) : error ? (
-					<Center pt={80}>
+					<Box className="gp-empty-state">
+						<Box className="gp-empty-state__icon">
+							<BookmarkFilledIcon size={24} />
+						</Box>
+						<Text fw={700}>Bookmarks unavailable</Text>
 						<Text c="red" size="sm">
 							{error}
 						</Text>
-					</Center>
+					</Box>
 				) : posts.length === 0 ? (
-					<Center pt={80}>
-						<Stack align="center" gap="sm">
-							<Text size="xl">🔖</Text>
-							<Text c="dimmed" size="sm">
-								No saved posts yet
-							</Text>
-							<Text c="dimmed" size="xs">
-								Tap the bookmark icon on any post to save it
-							</Text>
-						</Stack>
-					</Center>
+					<Box className="gp-empty-state">
+						<Box className="gp-empty-state__icon">
+							<BookmarkFilledIcon size={24} />
+						</Box>
+						<Text fw={700}>No saved posts yet</Text>
+						<Text c="dimmed" size="sm">
+							Save visual posts or local drops from the feed to
+							build a cleaner personal archive.
+						</Text>
+					</Box>
 				) : (
 					posts.map((post) => (
 						<BookmarkCard key={post.id} post={post} />

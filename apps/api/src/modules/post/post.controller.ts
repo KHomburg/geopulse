@@ -137,6 +137,7 @@ export const createPost = async (req: Request, res: Response) => {
 
 	const post = await PostService.createPost({
 		...body,
+		isStory: true,
 		userId,
 		accountStatus: req.auth?.accountStatus
 	});

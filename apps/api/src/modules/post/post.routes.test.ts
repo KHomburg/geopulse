@@ -57,6 +57,8 @@ describe("Post routes (SQLite)", () => {
 			expect(res.body.id).toBeDefined();
 			expect(res.body.content).toBe(basePost.content);
 			expect(res.body.anonymityMode).toBe("public");
+			expect(res.body.isStory).toBe(true);
+			expect(res.body.expiresAt).toEqual(expect.any(String));
 			// Coordinates should be obfuscated (not exact input)
 			expect(typeof res.body.lat).toBe("number");
 			expect(typeof res.body.lng).toBe("number");
@@ -194,6 +196,36 @@ describe("Post routes (SQLite)", () => {
 				.expect(200);
 
 			expect(res.body.id).toBe(created.body.id);
+		});
+
+		it("hides expired posts after 24 hours", async () => {
+			const created = await request(App)
+				.post("/api/v1/posts")
+				.set("Authorization", `Bearer ${authToken}`)
+				.send(basePost)
+				.expect(201);
+
+			const PostModel = (await import("./post.model")).default;
+			await PostModel.update(
+				{ expiresAt: new Date(Date.now() - 60_000) },
+				{ where: { id: created.body.id } }
+			);
+
+			await request(App)
+				.get(`/api/v1/posts/${created.body.id}`)
+				.expect(404);
+
+			const feed = await request(App)
+				.get(
+					"/api/v1/posts?lat=48.8566&lng=2.3522&radiusKm=20&filter=week"
+				)
+				.expect(200);
+
+			expect(
+				(feed.body.data as Array<{ id: number }>).some(
+					(post) => post.id === created.body.id
+				)
+			).toBe(false);
 		});
 
 		it("returns 404 for non-existent post", async () => {

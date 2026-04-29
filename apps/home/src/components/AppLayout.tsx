@@ -1,6 +1,6 @@
-import { ReactNode, useEffect } from "react";
+import { ReactElement, ReactNode, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Alert, Box, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Alert, Box, UnstyledButton } from "@mantine/core";
 import { useAuthStore } from "../store/auth.store";
 import { messagesApi } from "../api/messages.api";
 import { notificationsApi } from "../api/notifications.api";
@@ -8,27 +8,42 @@ import { subscribeRealtime } from "../realtime/realtime.client";
 import { useInboxStore } from "../store/inbox.store";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { usePresenceTracker } from "../hooks/usePresenceTracker";
+import {
+	CreateIcon,
+	FeedIcon,
+	MapIcon,
+	MessagesIcon,
+	ProfileIcon,
+	type IconProps
+} from "./icons";
 
 interface NavItem {
 	path: string;
-	icon: string;
+	icon: (props: IconProps) => ReactElement;
 	label: string;
 	requiresAuth?: boolean;
 	badgeKey?: "messages" | "notifications";
+	emphasis?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-	{ path: "/map", icon: "🗺️", label: "Map" },
-	{ path: "/feed", icon: "⚡", label: "Feed" },
-	{ path: "/post/new", icon: "+", label: "Create", requiresAuth: true },
+	{ path: "/map", icon: MapIcon, label: "Map" },
+	{ path: "/feed", icon: FeedIcon, label: "Feed" },
+	{
+		path: "/post/new",
+		icon: CreateIcon,
+		label: "Post",
+		requiresAuth: true,
+		emphasis: true
+	},
 	{
 		path: "/messages",
-		icon: "💬",
+		icon: MessagesIcon,
 		label: "Messages",
 		requiresAuth: true,
 		badgeKey: "messages"
 	},
-	{ path: "/profile", icon: "👤", label: "Profile" }
+	{ path: "/profile", icon: ProfileIcon, label: "Profile" }
 ];
 
 interface AppLayoutProps {
@@ -122,135 +137,52 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 	};
 
 	return (
-		<Box
-			style={{
-				display: "flex",
-				flexDirection: "column",
-				height: "100vh",
-				background: "#0a0a0a",
-				maxWidth: 480,
-				margin: "0 auto",
-				position: "relative"
-			}}
-		>
-			{accountNotice?.kind === "read_only" && (
-				<Box style={{ padding: "12px 12px 0" }}>
-					<Alert color="yellow" variant="light" radius="md">
-						{accountNotice.message}
-					</Alert>
-				</Box>
-			)}
+		<Box className="gp-app-shell">
+			<Box className="gp-app-shell__frame">
+				{accountNotice?.kind === "read_only" && (
+					<Box className="gp-notice-banner">
+						<Alert color="yellow" variant="light" radius="md">
+							{accountNotice.message}
+						</Alert>
+					</Box>
+				)}
 
-			{/* Page content */}
-			<Box style={{ flex: 1, overflow: "hidden", position: "relative" }}>
-				{children}
-			</Box>
+				<Box className="gp-app-shell__content">{children}</Box>
 
-			{/* Bottom navigation */}
-			<Box
-				style={{
-					display: "flex",
-					borderTop: "1px solid #2a2a2a",
-					background: "rgba(10,10,10,0.98)",
-					backdropFilter: "blur(16px)",
-					paddingBottom: "env(safe-area-inset-bottom, 0px)",
-					zIndex: 100
-				}}
-			>
-				{NAV_ITEMS.map((item) => {
-					const isActive = isNavItemActive(item);
-					const badge = item.badgeKey
-						? badgeCounts[item.badgeKey]
-						: 0;
-					return (
-						<UnstyledButton
-							key={item.path}
-							onClick={() => handleNav(item)}
-							style={{
-								flex: 1,
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "center",
-								padding: "10px 0 8px",
-								transition: "all 0.15s ease"
-							}}
-						>
-							<Stack
-								align="center"
-								gap={2}
-								style={{ position: "relative" }}
+				<Box className="gp-bottom-dock">
+					{NAV_ITEMS.map((item) => {
+						const isActive = isNavItemActive(item);
+						const badge = item.badgeKey
+							? badgeCounts[item.badgeKey]
+							: 0;
+						const Icon = item.icon;
+						const buttonClassName = [
+							"gp-bottom-dock__button",
+							isActive ? "gp-bottom-dock__button--active" : ""
+						]
+							.filter(Boolean)
+							.join(" ");
+
+						return (
+							<UnstyledButton
+								key={item.path}
+								onClick={() => handleNav(item)}
+								aria-label={item.label}
+								title={item.label}
+								className={buttonClassName}
 							>
-								<Box
-									style={{
-										position: "relative",
-										display: "inline-flex"
-									}}
-								>
-									<Text
-										style={{
-											lineHeight: 1,
-											fontSize:
-												item.path === "/post/new"
-													? 24
-													: 18,
-											opacity: isActive ? 1 : 0.45,
-											filter:
-												item.path === "/post/new"
-													? "drop-shadow(0 0 10px rgba(108,99,255,0.9))"
-													: "none",
-											color:
-												item.path === "/post/new"
-													? "#6c63ff"
-													: "#f0f0f0",
-											transition: "all 0.15s ease"
-										}}
-									>
-										{item.icon}
-									</Text>
+								<Box className="gp-bottom-dock__icon-shell">
+									<Icon className="gp-nav-icon" />
 									{badge > 0 && (
-										<Box
-											style={{
-												position: "absolute",
-												top: -4,
-												right: -6,
-												minWidth: 14,
-												height: 14,
-												borderRadius: 7,
-												background: "#6c63ff",
-												display: "flex",
-												alignItems: "center",
-												justifyContent: "center",
-												padding: "0 3px"
-											}}
-										>
-											<Text
-												style={{
-													fontSize: 8,
-													color: "#fff",
-													fontWeight: 700,
-													lineHeight: 1
-												}}
-											>
-												{badge > 99 ? "99+" : badge}
-											</Text>
+										<Box className="gp-bottom-dock__badge">
+											{badge > 99 ? "99+" : badge}
 										</Box>
 									)}
 								</Box>
-								<Text
-									style={{
-										fontSize: 9,
-										color: isActive ? "#6c63ff" : "#555",
-										fontWeight: isActive ? 700 : 400,
-										letterSpacing: 0.5,
-										textTransform: "uppercase"
-									}}
-								>
-									{item.label}
-								</Text>
-							</Stack>
-						</UnstyledButton>
-					);
-				})}
+							</UnstyledButton>
+						);
+					})}
+				</Box>
 			</Box>
 		</Box>
 	);
