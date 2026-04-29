@@ -29,6 +29,11 @@ export const UserService = {
 
 	async deleteUser(id: string | number) {
 		return UserRepository.deleteById(id);
+	},
+
+	async searchUsers(query: string) {
+		const users = await UserRepository.search(query);
+		return users.map(sanitizeUser);
 	}
 };
 

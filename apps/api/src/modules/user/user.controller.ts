@@ -107,3 +107,22 @@ export const UpdateUserEmail = async (
 		return res.status(500).json({ message: "Internal server error" });
 	}
 };
+
+export const SearchUsers = async (
+	req: Request,
+	res: Response
+): Promise<Response> => {
+	try {
+		const q = String(req.query.q ?? "").trim();
+		if (!q || q.length < 2) {
+			return res
+				.status(400)
+				.json({ message: "Query must be at least 2 characters" });
+		}
+		const users = await UserService.searchUsers(q);
+		return res.status(200).json({ data: users });
+	} catch (error: unknown) {
+		console.error(error);
+		return res.status(500).json({ message: "Internal server error" });
+	}
+};

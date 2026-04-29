@@ -1,5 +1,6 @@
-import { Op } from "sequelize";
+import { Op, Sequelize } from "sequelize";
 import Post from "./post.model";
+import Comment from "../comment/comment.model";
 import type { AnonymityMode } from "./post.model";
 
 export interface CreatePostPayload {
@@ -54,6 +55,16 @@ export const PostRepository = {
 				obfuscatedLat: { [Op.between]: [params.minLat, params.maxLat] },
 				obfuscatedLng: { [Op.between]: [params.minLng, params.maxLng] },
 				createdAt: { [Op.gte]: params.since }
+			},
+			attributes: {
+				include: [
+					[
+						Sequelize.literal(
+							`(SELECT COUNT(*) FROM \`comment\` WHERE \`comment\`.\`postId\` = \`Post\`.\`id\` AND \`comment\`.\`deletedAt\` IS NULL)`
+						),
+						"commentCount"
+					]
+				]
 			},
 			order: [
 				["karmaScore", "DESC"],

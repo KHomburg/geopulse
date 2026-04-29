@@ -12,6 +12,14 @@ import { UserRouter } from "./../../modules/user/user.routes";
 import { AuthRouter } from "../../modules/auth/auth.routes";
 import { PostRouter } from "../../modules/post/post.routes";
 import { VoteRouter } from "../../modules/vote/vote.routes";
+import { ContactRouter } from "../../modules/contact/contact.routes";
+import { MessageRouter } from "../../modules/message/message.routes";
+import { NotificationRouter } from "../../modules/notification/notification.routes";
+import { CommentRouter } from "../../modules/comment/comment.routes";
+import {
+	BookmarkRouter,
+	MyBookmarksRouter
+} from "../../modules/bookmark/bookmark.routes";
 import { globalLimiter } from "../middleware/rateLimit.middleware";
 import { config } from "./env.config";
 import { errorHandler, notFoundHandler } from "../middleware/error.middleware";
@@ -80,6 +88,22 @@ App.use("/api/v1/posts", PostRouter);
 
 // Votes (nested under posts)
 App.use("/api/v1/posts/:postId/votes", VoteRouter);
+
+// Comments (nested under posts)
+App.use("/api/v1/posts/:postId/comments", CommentRouter);
+
+// Bookmarks (nested under posts, and top-level for user's saved list)
+App.use("/api/v1/posts/:postId/bookmark", BookmarkRouter);
+App.use("/api/v1/bookmarks", MyBookmarksRouter);
+
+// Contacts
+App.use("/api/v1/contacts", ContactRouter);
+
+// Messages / Conversations
+App.use("/api/v1/conversations", MessageRouter);
+
+// Notifications
+App.use("/api/v1/notifications", NotificationRouter);
 
 //#endregion
 // 404 and Error handlers

@@ -6,6 +6,13 @@ import { config } from "./shared/config/env.config";
 import "./modules/user/user.model";
 import "./modules/post/post.model";
 import "./modules/vote/vote.model";
+import "./modules/contact/contact.model";
+import "./modules/message/conversation.model";
+import "./modules/message/conversationParticipant.model";
+import "./modules/message/message.model";
+import "./modules/notification/notification.model";
+import "./modules/comment/comment.model";
+import "./modules/bookmark/bookmark.model";
 import "./shared/config/models.associations";
 //#endregion
 

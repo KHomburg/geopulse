@@ -24,6 +24,7 @@ function sanitizePost(post: Record<string, unknown>, requesterId?: number) {
 		isActive: boolean;
 		expiresAt: Date | null;
 		createdAt: Date;
+		commentCount?: number;
 	};
 
 	const { authorId, authorPseudonym } = resolveAuthorDisplay(
@@ -45,6 +46,7 @@ function sanitizePost(post: Record<string, unknown>, requesterId?: number) {
 		isStory: p.isStory,
 		expiresAt: p.expiresAt,
 		createdAt: p.createdAt,
+		commentCount: Number(p.commentCount ?? 0),
 		isOwner: requesterId != null ? p.userId === requesterId : false
 	};
 }

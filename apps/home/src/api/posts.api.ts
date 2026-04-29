@@ -17,6 +17,7 @@ export interface Post {
 	expiresAt: string | null;
 	createdAt: string;
 	isOwner: boolean;
+	commentCount: number;
 }
 
 export interface HotspotCluster {

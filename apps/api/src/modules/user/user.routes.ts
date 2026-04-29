@@ -5,11 +5,13 @@ import {
 	GetUsers,
 	DeleteUser,
 	UpdateUser,
-	UpdateUserEmail
+	UpdateUserEmail,
+	SearchUsers
 } from "./user.controller";
 import { AuthMiddleware } from "../../shared/middleware/auth.middleware";
 
 const UserRouter = Router();
+UserRouter.get("/search", SearchUsers);
 UserRouter.get("/", GetUsers);
 UserRouter.get("/:id", GetUser);
 UserRouter.post("/", CreateUser);

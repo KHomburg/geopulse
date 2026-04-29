@@ -10,11 +10,15 @@ import {
 	Paper,
 	Select,
 	Stack,
-	Text
+	Text,
+	Textarea,
+	Divider
 } from "@mantine/core";
 import { useFeedStore } from "../store/feed.store";
 import { useAuthStore } from "../store/auth.store";
 import { postsApi, type Post } from "../api/posts.api";
+import { commentsApi, type Comment } from "../api/comments.api";
+import { bookmarksApi } from "../api/bookmarks.api";
 import { useGeolocation } from "../hooks/useGeolocation";
 
 const FILTER_OPTIONS = [
@@ -51,10 +55,66 @@ interface PostCardProps {
 	onDelete?: (id: number) => void;
 }
 
+const CommentItem = ({
+	comment,
+	postId,
+	currentUserId,
+	onDeleted
+}: {
+	comment: Comment;
+	postId: number;
+	currentUserId: number | null;
+	onDeleted: (id: number) => void;
+}) => (
+	<Box
+		style={{
+			borderLeft: "2px solid #2a2a2a",
+			paddingLeft: 10,
+			marginBottom: 8
+		}}
+	>
+		<Group justify="space-between" wrap="nowrap">
+			<Group gap={6} wrap="nowrap">
+				<Text size="xs" fw={600} style={{ color: "#b0b0b0" }}>
+					{comment.author?.username ?? `User #${comment.userId}`}
+				</Text>
+				<Text size="xs" c="dimmed">
+					{timeAgo(comment.createdAt)}
+				</Text>
+			</Group>
+			{currentUserId === comment.userId && (
+				<ActionIcon
+					size="xs"
+					variant="subtle"
+					color="red"
+					onClick={() =>
+						commentsApi
+							.deleteComment(postId, comment.id)
+							.then(() => onDeleted(comment.id))
+					}
+				>
+					✕
+				</ActionIcon>
+			)}
+		</Group>
+		<Text size="xs" style={{ color: "#d0d0d0", wordBreak: "break-word" }}>
+			{comment.content}
+		</Text>
+	</Box>
+);
+
 const PostCard = ({ post, onDelete }: PostCardProps) => {
-	const { isAuthenticated } = useAuthStore();
+	const { isAuthenticated, userId } = useAuthStore();
 	const { votePost } = useFeedStore();
 	const [voteError, setVoteError] = useState<string | null>(null);
+	const [showComments, setShowComments] = useState(false);
+	const [comments, setComments] = useState<Comment[]>([]);
+	const [commentCount, setCommentCount] = useState(post.commentCount ?? 0);
+	const [loadingComments, setLoadingComments] = useState(false);
+	const [newComment, setNewComment] = useState("");
+	const [submittingComment, setSubmittingComment] = useState(false);
+	const [bookmarked, setBookmarked] = useState(false);
+	const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
 	const handleVote = async (value: 1 | -1) => {
 		try {
@@ -71,6 +131,57 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 			onDelete?.(post.id);
 		} catch {
 			// Ignore
+		}
+	};
+
+	const toggleComments = async () => {
+		if (!showComments && comments.length === 0) {
+			setLoadingComments(true);
+			try {
+				const data = await commentsApi.getComments(post.id);
+				setComments(data);
+			} catch {
+				// ignore
+			} finally {
+				setLoadingComments(false);
+			}
+		}
+		setShowComments((s) => !s);
+	};
+
+	const handleAddComment = async () => {
+		if (!newComment.trim() || submittingComment) return;
+		setSubmittingComment(true);
+		try {
+			const added = await commentsApi.createComment(
+				post.id,
+				newComment.trim()
+			);
+			setComments((prev) => [added, ...prev]);
+			setCommentCount((c) => c + 1);
+			setNewComment("");
+		} catch {
+			// ignore
+		} finally {
+			setSubmittingComment(false);
+		}
+	};
+
+	const handleCommentDeleted = (id: number) => {
+		setComments((prev) => prev.filter((c) => c.id !== id));
+		setCommentCount((c) => Math.max(0, c - 1));
+	};
+
+	const toggleBookmark = async () => {
+		if (!isAuthenticated || bookmarkLoading) return;
+		setBookmarkLoading(true);
+		try {
+			const result = await bookmarksApi.toggleBookmark(post.id);
+			setBookmarked(result.bookmarked);
+		} catch {
+			// ignore
+		} finally {
+			setBookmarkLoading(false);
 		}
 	};
 
@@ -183,24 +294,122 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 							{voteError}
 						</Text>
 					)}
-				</Group>
-
-				<Text size="xs" c="dimmed">
-					📍 {post.lat.toFixed(3)}, {post.lng.toFixed(3)}
-				</Text>
-
-				{post.isOwner && (
 					<ActionIcon
-						color="red"
 						variant="subtle"
 						size="sm"
-						onClick={handleDelete}
-						title="Delete post"
+						onClick={toggleComments}
+						style={{ color: showComments ? "#6c63ff" : "#666" }}
 					>
-						✕
+						💬
 					</ActionIcon>
-				)}
+					<Text size="xs" c="dimmed">
+						{commentCount}
+					</Text>
+				</Group>
+
+				<Group gap={6} wrap="nowrap">
+					<Text size="xs" c="dimmed">
+						📍 {post.lat.toFixed(3)}, {post.lng.toFixed(3)}
+					</Text>
+
+					{isAuthenticated && (
+						<ActionIcon
+							variant="subtle"
+							size="sm"
+							onClick={toggleBookmark}
+							disabled={bookmarkLoading}
+							style={{ color: bookmarked ? "#6c63ff" : "#555" }}
+							title={
+								bookmarked ? "Remove bookmark" : "Save bookmark"
+							}
+						>
+							{bookmarked ? "🔖" : "🏷"}
+						</ActionIcon>
+					)}
+
+					{post.isOwner && (
+						<ActionIcon
+							color="red"
+							variant="subtle"
+							size="sm"
+							onClick={handleDelete}
+							title="Delete post"
+						>
+							✕
+						</ActionIcon>
+					)}
+				</Group>
 			</Group>
+
+			{showComments && (
+				<Box mt={12}>
+					<Divider mb={10} color="#2a2a2a" />
+					{isAuthenticated && (
+						<Group gap={8} mb={12} wrap="nowrap" align="flex-end">
+							<Textarea
+								placeholder="Write a comment…"
+								value={newComment}
+								onChange={(e) =>
+									setNewComment(e.currentTarget.value)
+								}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault();
+										handleAddComment();
+									}
+								}}
+								autosize
+								minRows={1}
+								maxRows={3}
+								style={{ flex: 1 }}
+								styles={{
+									input: {
+										background: "#1a1a1a",
+										border: "1px solid #2a2a2a",
+										color: "#f0f0f0",
+										fontSize: 13
+									}
+								}}
+							/>
+							<ActionIcon
+								variant="filled"
+								style={{
+									background: "#6c63ff",
+									color: "white"
+								}}
+								size="lg"
+								disabled={
+									!newComment.trim() || submittingComment
+								}
+								onClick={handleAddComment}
+							>
+								↑
+							</ActionIcon>
+						</Group>
+					)}
+					{loadingComments ? (
+						<Center py={12}>
+							<Loader size="xs" color="violet" />
+						</Center>
+					) : comments.length === 0 ? (
+						<Text size="xs" c="dimmed" ta="center" py={8}>
+							No comments yet
+						</Text>
+					) : (
+						<Stack gap={4}>
+							{comments.map((c) => (
+								<CommentItem
+									key={c.id}
+									comment={c}
+									postId={post.id}
+									currentUserId={userId}
+									onDeleted={handleCommentDeleted}
+								/>
+							))}
+						</Stack>
+					)}
+				</Box>
+			)}
 		</Paper>
 	);
 };

@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import User from "./user.model";
 
 export const UserRepository = {
@@ -7,6 +8,19 @@ export const UserRepository = {
 
 	async findById(id: string | number) {
 		return User.findOne({ where: { id } });
+	},
+
+	async search(query: string, limit = 20): Promise<User[]> {
+		return User.findAll({
+			where: {
+				[Op.or]: [
+					{ username: { [Op.like]: `%${query}%` } },
+					{ displayName: { [Op.like]: `%${query}%` } }
+				]
+			},
+			attributes: ["id", "username", "displayName", "avatarUrl"],
+			limit
+		});
 	},
 
 	async create(payload: Record<string, any>) {

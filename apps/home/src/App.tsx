@@ -6,6 +6,11 @@ import MapPage from "./pages/MapPage";
 import FeedPage from "./pages/FeedPage";
 import CreatePostPage from "./pages/CreatePostPage";
 import ProfilePage from "./pages/ProfilePage";
+import ContactsPage from "./pages/ContactsPage";
+import MessagesPage from "./pages/MessagesPage";
+import ConversationPage from "./pages/ConversationPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import BookmarksPage from "./pages/BookmarksPage";
 import { useAuthStore } from "./store/auth.store";
 
 const App = () => {
@@ -30,6 +35,56 @@ const App = () => {
 								element={
 									isAuthenticated ? (
 										<CreatePostPage />
+									) : (
+										<Navigate to="/login" replace />
+									)
+								}
+							/>
+							<Route
+								path="contacts"
+								element={
+									isAuthenticated ? (
+										<ContactsPage />
+									) : (
+										<Navigate to="/login" replace />
+									)
+								}
+							/>
+							<Route
+								path="messages"
+								element={
+									isAuthenticated ? (
+										<MessagesPage />
+									) : (
+										<Navigate to="/login" replace />
+									)
+								}
+							/>
+							<Route
+								path="messages/:conversationId"
+								element={
+									isAuthenticated ? (
+										<ConversationPage />
+									) : (
+										<Navigate to="/login" replace />
+									)
+								}
+							/>
+							<Route
+								path="notifications"
+								element={
+									isAuthenticated ? (
+										<NotificationsPage />
+									) : (
+										<Navigate to="/login" replace />
+									)
+								}
+							/>
+							<Route
+								path="bookmarks"
+								element={
+									isAuthenticated ? (
+										<BookmarksPage />
 									) : (
 										<Navigate to="/login" replace />
 									)
