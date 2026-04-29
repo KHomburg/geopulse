@@ -108,6 +108,31 @@ describe("Post routes (SQLite)", () => {
 			expect(res.body.authorPseudonym).toBeNull();
 		});
 
+		it("creates a post with an image gallery", async () => {
+			const res = await request(App)
+				.post("/api/v1/posts")
+				.set("Authorization", `Bearer ${authToken}`)
+				.send({
+					...basePost,
+					content: "Gallery post from the square",
+					mediaUrls: [
+						"https://images.example.com/post-1.jpg",
+						"https://images.example.com/post-2.jpg",
+						"https://images.example.com/post-3.jpg"
+					]
+				})
+				.expect(201);
+
+			expect(res.body.mediaUrl).toBe(
+				"https://images.example.com/post-1.jpg"
+			);
+			expect(res.body.mediaUrls).toEqual([
+				"https://images.example.com/post-1.jpg",
+				"https://images.example.com/post-2.jpg",
+				"https://images.example.com/post-3.jpg"
+			]);
+		});
+
 		it("blocks post creation for read-only accounts", async () => {
 			const UserModel = (await import("../user/user.model")).default;
 			await UserModel.update(

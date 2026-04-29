@@ -8,6 +8,7 @@ export interface Post {
 	content: string;
 	previewContent: string;
 	mediaUrl: string | null;
+	mediaUrls: string[];
 	anonymityMode: AnonymityMode;
 	authorId: number | null;
 	authorPseudonym: string | null;
@@ -53,6 +54,7 @@ export interface FeedParams {
 export interface CreatePostPayload {
 	content: string;
 	mediaUrl?: string;
+	mediaUrls?: string[];
 	anonymityMode: AnonymityMode;
 	pseudonym?: string;
 	postType: "standard" | "drop";

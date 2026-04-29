@@ -12,6 +12,7 @@ import {
 } from "@mantine/core";
 import { bookmarksApi } from "../api/bookmarks.api";
 import type { Post } from "../api/posts.api";
+import PostMediaGallery from "../components/PostMediaGallery";
 
 function timeAgo(dateStr: string): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
@@ -83,9 +84,19 @@ const BookmarkCard = ({ post }: { post: Post }) => (
 				)}
 			</Group>
 		</Group>
-		<Text size="sm" style={{ lineHeight: 1.5, wordBreak: "break-word" }}>
-			{post.content}
-		</Text>
+		{post.content && (
+			<Text
+				size="sm"
+				style={{ lineHeight: 1.5, wordBreak: "break-word" }}
+			>
+				{post.content}
+			</Text>
+		)}
+		{post.mediaUrls.length > 0 && (
+			<Box mt={12}>
+				<PostMediaGallery mediaUrls={post.mediaUrls} />
+			</Box>
+		)}
 		<Group justify="space-between" mt={10}>
 			<Text size="xs" style={{ color: "#6c63ff" }} fw={600}>
 				▲ {post.karmaScore}

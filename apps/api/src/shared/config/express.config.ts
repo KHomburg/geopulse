@@ -21,6 +21,7 @@ import { ActivityRouter } from "../../modules/activity/activity.routes";
 import { AdminRouter } from "../../modules/admin/admin.routes";
 import { GhostRouter } from "../../modules/ghost/ghost.routes";
 import { RoomRouter } from "../../modules/room/room.routes";
+import { MapRouter } from "../../modules/map/map.routes";
 import { ReportRouter } from "../../modules/report/report.routes";
 import {
 	BookmarkRouter,
@@ -158,6 +159,7 @@ App.use("/api/v1/realtime", RealtimeRouter);
 App.use("/api/v1/activity", ActivityRouter);
 App.use("/api/v1/ghost", GhostRouter);
 App.use("/api/v1/rooms", RoomRouter);
+App.use("/api/v1/map", MapRouter);
 
 //#endregion
 // 404 and Error handlers

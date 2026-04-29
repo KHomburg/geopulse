@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+	ActionIcon,
 	Alert,
 	Badge,
 	Box,
@@ -18,12 +19,15 @@ import { useAuthStore } from "../store/auth.store";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { POST_TAGS, type PostTagKey } from "../constants/postTags";
 import { userApi, type CurrentUser } from "../api/user.api";
+import PostMediaGallery from "../components/PostMediaGallery";
 
 const ANONYMITY_DATA = [
 	{ label: "🌍 Public", value: "public" },
 	{ label: "🎭 Alias", value: "local_legend" },
 	{ label: "👤 Anon", value: "anonymous" }
 ];
+
+const MAX_POST_MEDIA_ITEMS = 6;
 
 const CreatePostPage = () => {
 	const navigate = useNavigate();
@@ -41,6 +45,7 @@ const CreatePostPage = () => {
 	const [isSuperLocalLegend, setIsSuperLocalLegend] = useState(false);
 	const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 	const [isStory, setIsStory] = useState(false);
+	const [mediaInputs, setMediaInputs] = useState([""]);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState("");
 
@@ -52,8 +57,12 @@ const CreatePostPage = () => {
 	}, []);
 
 	const isWriteBlocked = accountNotice?.kind === "read_only";
+	const mediaUrls = mediaInputs
+		.map((value) => value.trim())
+		.filter(Boolean)
+		.slice(0, MAX_POST_MEDIA_ITEMS);
 	const canSubmit =
-		content.trim().length > 0 &&
+		(content.trim().length > 0 || mediaUrls.length > 0) &&
 		(mode !== "local_legend" || pseudonym.trim().length > 0) &&
 		(postType !== "drop" || dropHint.trim().length > 0) &&
 		location.lat !== null &&
@@ -71,6 +80,29 @@ const CreatePostPage = () => {
 		});
 	};
 
+	const updateMediaInput = (index: number, value: string) => {
+		setMediaInputs((current) =>
+			current.map((entry, entryIndex) =>
+				entryIndex === index ? value : entry
+			)
+		);
+	};
+
+	const addMediaInput = () => {
+		setMediaInputs((current) =>
+			current.length >= MAX_POST_MEDIA_ITEMS ? current : [...current, ""]
+		);
+	};
+
+	const removeMediaInput = (index: number) => {
+		setMediaInputs((current) => {
+			const next = current.filter(
+				(_, entryIndex) => entryIndex !== index
+			);
+			return next.length > 0 ? next : [""];
+		});
+	};
+
 	const handleSubmit = async () => {
 		if (!canSubmit || !location.lat || !location.lng) return;
 		setIsSubmitting(true);
@@ -78,6 +110,7 @@ const CreatePostPage = () => {
 		try {
 			const { data } = await postsApi.createPost({
 				content: content.trim(),
+				mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
 				anonymityMode: mode,
 				pseudonym:
 					mode === "local_legend" ? pseudonym.trim() : undefined,
@@ -192,6 +225,70 @@ const CreatePostPage = () => {
 					maxLength={2000}
 					autosize
 				/>
+
+				<Box>
+					<Group justify="space-between" align="center" mb={8}>
+						<Text
+							size="xs"
+							c="dimmed"
+							fw={600}
+							style={{
+								textTransform: "uppercase",
+								letterSpacing: 0.5
+							}}
+						>
+							Gallery
+						</Text>
+						<Button
+							size="compact-xs"
+							variant="subtle"
+							color="violet"
+							onClick={addMediaInput}
+							disabled={
+								mediaInputs.length >= MAX_POST_MEDIA_ITEMS
+							}
+						>
+							+ Add image
+						</Button>
+					</Group>
+
+					<Stack gap="xs">
+						{mediaInputs.map((value, index) => (
+							<Group key={`media-${index}`} gap={8} wrap="nowrap">
+								<TextInput
+									style={{ flex: 1 }}
+									type="url"
+									placeholder="https://images.example.com/your-photo.jpg"
+									value={value}
+									onChange={(event) =>
+										updateMediaInput(
+											index,
+											event.currentTarget.value
+										)
+									}
+								/>
+								{mediaInputs.length > 1 && (
+									<ActionIcon
+										variant="subtle"
+										color="red"
+										onClick={() => removeMediaInput(index)}
+									>
+										✕
+									</ActionIcon>
+								)}
+							</Group>
+						))}
+					</Stack>
+
+					<Text size="xs" c="dimmed">
+						Paste direct image links. Up to {MAX_POST_MEDIA_ITEMS}{" "}
+						photos per post.
+					</Text>
+				</Box>
+
+				{mediaUrls.length > 0 && (
+					<PostMediaGallery mediaUrls={mediaUrls} />
+				)}
 
 				<Box>
 					<Text

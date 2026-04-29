@@ -8,6 +8,7 @@ import {
 } from "./post.schemas";
 import { haversineDistanceMeters, resolveAuthorDisplay } from "./post.utils";
 import type { AnonymityMode } from "./post.model";
+import { parseStoredPostMediaUrls } from "./post.media";
 
 function parseTags(tags: string | null | undefined) {
 	return tags ? tags.split(",").filter(Boolean) : [];
@@ -51,6 +52,7 @@ function sanitizePost(
 		p.userId,
 		p.pseudonym
 	);
+	const mediaUrls = parseStoredPostMediaUrls(p.mediaUrl);
 
 	const tags = parseTags(p.tags);
 	const unlockRadius = p.dropUnlockRadiusMeters ?? 20;
@@ -68,6 +70,13 @@ function sanitizePost(
 	const isSuperLocalLegend =
 		p.boostedUntil != null &&
 		new Date(p.boostedUntil).getTime() > Date.now();
+	const visibleMediaUrls = isLocked ? [] : mediaUrls;
+	const fallbackPreviewContent =
+		visibleMediaUrls.length > 1
+			? `${visibleMediaUrls.length} photos`
+			: visibleMediaUrls.length === 1
+			? "1 photo"
+			: "";
 
 	return {
 		id: p.id,
@@ -76,8 +85,9 @@ function sanitizePost(
 			: p.content,
 		previewContent: isLocked
 			? p.dropHint ?? "Secret local drop nearby"
-			: p.content,
-		mediaUrl: isLocked ? null : p.mediaUrl,
+			: p.content || fallbackPreviewContent,
+		mediaUrl: visibleMediaUrls[0] ?? null,
+		mediaUrls: visibleMediaUrls,
 		anonymityMode: p.anonymityMode,
 		authorId,
 		authorPseudonym,

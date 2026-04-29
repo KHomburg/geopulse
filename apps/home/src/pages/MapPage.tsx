@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import maplibregl from "maplibre-gl";
+import maplibregl, { type StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
 	ActionIcon,
@@ -18,14 +18,40 @@ import { useGeolocation } from "../hooks/useGeolocation";
 import { useInboxStore } from "../store/inbox.store";
 import { POST_TAGS, type PostTagKey } from "../constants/postTags";
 import { ghostApi, type FriendGhost } from "../api/ghost.api";
+import { mapPlacesApi, type NearbyPlace } from "../api/mapPlaces.api";
 import { roomsApi, type LiveLounge } from "../api/rooms.api";
 import { useAuthStore } from "../store/auth.store";
 
-// Free dark style from MapLibre demo tiles (no token required).
-// Override via VITE_MAP_STYLE env var to use a MapTiler/custom style.
-const MAP_STYLE =
-	import.meta.env.VITE_MAP_STYLE ??
-	"https://demotiles.maplibre.org/style.json";
+const DEFAULT_CENTER = {
+	lat: 52.52,
+	lng: 13.405,
+	zoom: 14
+};
+
+const DEFAULT_MAP_STYLE: StyleSpecification = {
+	version: 8,
+	sources: {
+		"osm-raster": {
+			type: "raster",
+			tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+			tileSize: 256,
+			attribution: "&copy; OpenStreetMap contributors"
+		}
+	},
+	layers: [
+		{
+			id: "osm-raster-layer",
+			type: "raster",
+			source: "osm-raster",
+			minzoom: 0,
+			maxzoom: 19
+		}
+	]
+};
+
+// Default to a street-level OSM raster map so the UI always shows real roads
+// and labels even without a third-party vector-tile style token.
+const MAP_STYLE = import.meta.env.VITE_MAP_STYLE ?? DEFAULT_MAP_STYLE;
 
 const FILTER_OPTIONS = [
 	{ value: "now", label: "Last hour" },
@@ -33,11 +59,20 @@ const FILTER_OPTIONS = [
 	{ value: "week", label: "This week" }
 ];
 
+const truncatePlaceLabel = (value: string, maxLength: number) => {
+	if (value.length <= maxLength) {
+		return value;
+	}
+
+	return `${value.slice(0, maxLength - 1).trimEnd()}...`;
+};
+
 const MapPage = () => {
 	const mapContainerRef = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<maplibregl.Map | null>(null);
 	const userMarkerRef = useRef<maplibregl.Marker | null>(null);
 	const ghostMarkersRef = useRef<maplibregl.Marker[]>([]);
+	const placeMarkersRef = useRef<maplibregl.Marker[]>([]);
 	const navigate = useNavigate();
 	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 	const unreadNotifications = useInboxStore(
@@ -59,9 +94,25 @@ const MapPage = () => {
 	} = useFeedStore();
 
 	const [mapReady, setMapReady] = useState(false);
+	const [mapViewport, setMapViewport] = useState(DEFAULT_CENTER);
 	const [lounges, setLounges] = useState<LiveLounge[]>([]);
 	const [ghosts, setGhosts] = useState<FriendGhost[]>([]);
+	const [places, setPlaces] = useState<NearbyPlace[]>([]);
+	const [selectedPlace, setSelectedPlace] = useState<NearbyPlace | null>(
+		null
+	);
+	const [areaLabel, setAreaLabel] = useState<string | null>(null);
+	const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
 	useGeolocation();
+
+	const focusPlace = useCallback((place: NearbyPlace) => {
+		setSelectedPlace(place);
+		mapRef.current?.flyTo({
+			center: [place.lng, place.lat],
+			zoom: Math.max(mapRef.current.getZoom(), 16),
+			duration: 900
+		});
+	}, []);
 
 	// Initialize MapLibre map (no API token required)
 	useEffect(() => {
@@ -70,14 +121,39 @@ const MapPage = () => {
 		const map = new maplibregl.Map({
 			container: mapContainerRef.current,
 			style: MAP_STYLE,
-			center: [location.lng ?? 13.405, location.lat ?? 52.52],
-			zoom: 13,
-			attributionControl: false,
+			center: [
+				location.lng ?? DEFAULT_CENTER.lng,
+				location.lat ?? DEFAULT_CENTER.lat
+			],
+			zoom: DEFAULT_CENTER.zoom,
+			attributionControl: { compact: true },
 			pitchWithRotate: false
 		});
 
+		map.dragRotate.disable();
+		map.touchZoomRotate.disableRotation();
+		map.addControl(
+			new maplibregl.NavigationControl({ showCompass: false }),
+			"bottom-right"
+		);
+
 		map.on("load", () => {
+			const center = map.getCenter();
+			setMapViewport({
+				lat: center.lat,
+				lng: center.lng,
+				zoom: map.getZoom()
+			});
 			setMapReady(true);
+		});
+
+		map.on("moveend", () => {
+			const center = map.getCenter();
+			setMapViewport({
+				lat: center.lat,
+				lng: center.lng,
+				zoom: map.getZoom()
+			});
 		});
 
 		mapRef.current = map;
@@ -96,7 +172,7 @@ const MapPage = () => {
 
 		mapRef.current.flyTo({
 			center: [location.lng, location.lat],
-			zoom: 14,
+			zoom: 15,
 			duration: 1500
 		});
 
@@ -115,6 +191,55 @@ const MapPage = () => {
 				.addTo(mapRef.current);
 		}
 	}, [mapReady, location]);
+
+	useEffect(() => {
+		if (!mapReady) return;
+
+		const controller = new AbortController();
+		const radiusMeters =
+			mapViewport.zoom >= 16 ? 450 : mapViewport.zoom >= 15 ? 650 : 900;
+
+		setIsLoadingPlaces(true);
+
+		void mapPlacesApi
+			.getDiscovery({
+				lat: mapViewport.lat,
+				lng: mapViewport.lng,
+				radiusMeters,
+				signal: controller.signal
+			})
+			.then((discovery) => {
+				if (controller.signal.aborted) return;
+
+				setPlaces(discovery.places);
+				setAreaLabel(discovery.areaLabel);
+				setSelectedPlace((current) => {
+					if (!current) {
+						return discovery.places[0] ?? null;
+					}
+
+					return (
+						discovery.places.find(
+							(place) => place.id === current.id
+						) ??
+						discovery.places[0] ??
+						null
+					);
+				});
+				setIsLoadingPlaces(false);
+			})
+			.catch(() => {
+				if (controller.signal.aborted) return;
+				setPlaces([]);
+				setAreaLabel(null);
+				setSelectedPlace(null);
+				setIsLoadingPlaces(false);
+			});
+
+		return () => {
+			controller.abort();
+		};
+	}, [mapReady, mapViewport.lat, mapViewport.lng, mapViewport.zoom]);
 
 	// Load data when location is ready
 	useEffect(() => {
@@ -475,6 +600,55 @@ const MapPage = () => {
 		};
 	}, [ghosts, mapReady]);
 
+	useEffect(() => {
+		if (!mapReady || !mapRef.current) return;
+
+		placeMarkersRef.current.forEach((marker) => marker.remove());
+		placeMarkersRef.current = [];
+
+		for (const place of places.slice(0, 8)) {
+			const isSelected = selectedPlace?.id === place.id;
+			const element = document.createElement("button");
+			element.type = "button";
+			element.title = place.name;
+			element.style.cssText = `
+				width: 34px;
+				height: 34px;
+				border-radius: 17px;
+				border: 2px solid rgba(255,255,255,0.95);
+				background: ${isSelected ? "#6c63ff" : "rgba(15,15,15,0.9)"};
+				color: #ffffff;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 16px;
+				cursor: pointer;
+				box-shadow: 0 8px 18px rgba(0,0,0,0.28);
+			`;
+			element.textContent = place.icon;
+			element.onclick = () => focusPlace(place);
+
+			const marker = new maplibregl.Marker({
+				element,
+				anchor: "bottom"
+			})
+				.setLngLat([place.lng, place.lat])
+				.setPopup(
+					new maplibregl.Popup({ offset: 18 }).setText(
+						`${place.name} · ${place.category}`
+					)
+				)
+				.addTo(mapRef.current);
+
+			placeMarkersRef.current.push(marker);
+		}
+
+		return () => {
+			placeMarkersRef.current.forEach((marker) => marker.remove());
+			placeMarkersRef.current = [];
+		};
+	}, [focusPlace, mapReady, places, selectedPlace?.id]);
+
 	const handleFilterChange = useCallback(
 		(value: string | null) => {
 			if (value) setFilter(value as "now" | "today" | "week");
@@ -489,6 +663,12 @@ const MapPage = () => {
 		}
 		setTags([...selectedTags, tag]);
 	};
+
+	const highlightedPlace = selectedPlace ?? places[0] ?? null;
+	const placeCardBottomOffset = lounges.length > 0 ? 252 : 148;
+	const highlightedPlaceName = highlightedPlace
+		? truncatePlaceLabel(highlightedPlace.name, 52)
+		: null;
 
 	return (
 		<Box style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -520,9 +700,22 @@ const MapPage = () => {
 					radius="xl"
 				>
 					<Group justify="space-between" align="center" wrap="nowrap">
-						<Text fw={700} size="sm" style={{ color: "#6c63ff" }}>
-							GeoPulse
-						</Text>
+						<Stack gap={2}>
+							<Text
+								fw={700}
+								size="sm"
+								style={{ color: "#6c63ff" }}
+							>
+								GeoPulse
+							</Text>
+							<Text size="xs" c="dimmed">
+								{isLoadingPlaces
+									? "Scanning nearby places..."
+									: areaLabel
+									? `Near ${areaLabel}`
+									: "Explore real streets and nearby places"}
+							</Text>
+						</Stack>
 						<Group gap={8} wrap="nowrap">
 							<Select
 								data={FILTER_OPTIONS}
@@ -592,6 +785,89 @@ const MapPage = () => {
 					})}
 				</Group>
 			</Box>
+
+			{highlightedPlace && (
+				<Box
+					style={{
+						position: "absolute",
+						left: 16,
+						right: 16,
+						bottom: placeCardBottomOffset,
+						zIndex: 12
+					}}
+				>
+					<Paper
+						radius="xl"
+						style={{
+							background: "rgba(20,20,20,0.94)",
+							backdropFilter: "blur(14px)",
+							border: "1px solid rgba(255,255,255,0.08)",
+							padding: "12px"
+						}}
+					>
+						<Group
+							justify="space-between"
+							align="flex-start"
+							wrap="nowrap"
+						>
+							<Stack gap={2} style={{ flex: 1 }}>
+								<Text size="xs" c="dimmed">
+									Nearby place
+								</Text>
+								<Text fw={700}>
+									{highlightedPlace.icon}{" "}
+									{highlightedPlaceName}
+								</Text>
+								<Text size="xs" c="dimmed">
+									{highlightedPlace.category} ·{" "}
+									{highlightedPlace.distanceMeters}m away
+								</Text>
+								{highlightedPlace.contextLine && (
+									<Text size="xs" c="dimmed">
+										{highlightedPlace.contextLine}
+									</Text>
+								)}
+							</Stack>
+							<Button
+								size="xs"
+								variant="light"
+								color="violet"
+								onClick={() => focusPlace(highlightedPlace)}
+							>
+								Center
+							</Button>
+						</Group>
+
+						<Group
+							gap={8}
+							mt={10}
+							wrap="nowrap"
+							style={{ overflowX: "auto" }}
+						>
+							{places.slice(0, 6).map((place) => {
+								const isSelected =
+									highlightedPlace.id === place.id;
+
+								return (
+									<Button
+										key={place.id}
+										size="compact-sm"
+										radius="xl"
+										variant={
+											isSelected ? "filled" : "subtle"
+										}
+										color={isSelected ? "violet" : "gray"}
+										onClick={() => focusPlace(place)}
+									>
+										{place.icon}{" "}
+										{truncatePlaceLabel(place.name, 28)}
+									</Button>
+								);
+							})}
+						</Group>
+					</Paper>
+				</Box>
+			)}
 
 			{lounges.length > 0 && (
 				<Box
@@ -664,6 +940,9 @@ const MapPage = () => {
 					>
 						<Text size="xs" c="dimmed">
 							{posts.length} pulses nearby
+							{places.length > 0
+								? ` · ${places.length} nearby places`
+								: ""}
 							{lounges.length > 0
 								? ` · ${lounges.length} live lounges`
 								: ""}

@@ -5,6 +5,10 @@ import UserRepository from "../user/user.repository";
 import { ActivityService } from "../../shared/activity/activity.service";
 import { TRUSTED_LOCALS_MIN_KARMA } from "../user/user.perks";
 import type { AccountStatus } from "../../shared/auth/auth.types";
+import {
+	mergeIncomingPostMediaUrls,
+	serializePostMediaUrls
+} from "./post.media";
 
 // Degrees per km (approximate)
 const DEG_PER_KM = 1 / 111.32;
@@ -36,6 +40,7 @@ export interface CreatePostInput {
 	userId: number;
 	content: string;
 	mediaUrl?: string;
+	mediaUrls?: string[];
 	anonymityMode: AnonymityMode;
 	pseudonym?: string;
 	postType: "standard" | "drop";
@@ -155,6 +160,11 @@ function computeHotspots(
 
 export const PostService = {
 	async createPost(input: CreatePostInput) {
+		const mediaUrls = mergeIncomingPostMediaUrls({
+			mediaUrl: input.mediaUrl,
+			mediaUrls: input.mediaUrls
+		});
+
 		if (input.isSuperLocalLegend) {
 			const user = await UserRepository.findById(input.userId);
 			if (!user || user.superPostCredits < 1) {
@@ -181,8 +191,8 @@ export const PostService = {
 
 		return PostRepository.create({
 			userId: input.userId,
-			content: input.content,
-			mediaUrl: input.mediaUrl ?? null,
+			content: input.content.trim(),
+			mediaUrl: serializePostMediaUrls(mediaUrls),
 			anonymityMode: input.anonymityMode,
 			pseudonym:
 				input.anonymityMode === "local_legend"

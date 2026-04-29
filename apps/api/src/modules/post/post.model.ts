@@ -50,7 +50,7 @@ Post.init(
 			allowNull: false
 		},
 		mediaUrl: {
-			type: DataTypes.STRING,
+			type: DataTypes.TEXT,
 			allowNull: true
 		},
 		anonymityMode: {

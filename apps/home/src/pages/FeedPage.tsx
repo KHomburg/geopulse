@@ -25,6 +25,7 @@ import { useGeolocation } from "../hooks/useGeolocation";
 import { useInboxStore } from "../store/inbox.store";
 import { POST_TAGS, type PostTagKey } from "../constants/postTags";
 import { getApiErrorMessage } from "../utils/apiErrors";
+import PostMediaGallery from "../components/PostMediaGallery";
 
 const FILTER_OPTIONS = [
 	{ value: "now", label: "Last hour" },
@@ -303,16 +304,23 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 				</Group>
 			</Group>
 
-			<Text
-				size="sm"
-				style={{
-					lineHeight: 1.5,
-					marginBottom: 12,
-					wordBreak: "break-word"
-				}}
-			>
-				{post.content}
-			</Text>
+			{post.content && (
+				<Text
+					size="sm"
+					style={{
+						lineHeight: 1.5,
+						marginBottom: 12,
+						wordBreak: "break-word"
+					}}
+				>
+					{post.content}
+				</Text>
+			)}
+			{!post.isLocked && post.mediaUrls.length > 0 && (
+				<Box mb={12}>
+					<PostMediaGallery mediaUrls={post.mediaUrls} />
+				</Box>
+			)}
 			{post.isLocked && (
 				<Text size="xs" c="dimmed" mb={12}>
 					Hint: {post.previewContent}
