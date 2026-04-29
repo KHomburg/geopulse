@@ -1,5 +1,9 @@
 import { sequelize } from "../../shared/config/sequelize.config";
 import { DataTypes, Model } from "sequelize";
+import {
+	MODERATION_STATUSES,
+	type ModerationStatus
+} from "../../shared/moderation/moderation.types";
 
 export class Comment extends Model {
 	declare id: number;
@@ -8,6 +12,7 @@ export class Comment extends Model {
 	declare content: string;
 	declare parentId: number | null;
 	declare karmaScore: number;
+	declare moderationStatus: ModerationStatus;
 	declare createdAt: Date;
 	declare updatedAt: Date;
 	declare deletedAt: Date | null;
@@ -42,6 +47,11 @@ Comment.init(
 			type: DataTypes.INTEGER,
 			allowNull: false,
 			defaultValue: 0
+		},
+		moderationStatus: {
+			type: DataTypes.ENUM(...MODERATION_STATUSES),
+			allowNull: false,
+			defaultValue: "published"
 		}
 	},
 	{

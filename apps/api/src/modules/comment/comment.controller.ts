@@ -13,7 +13,7 @@ const CreateCommentBody = z.object({
 
 export const getComments = async (req: Request, res: Response) => {
 	const { postId } = PostIdParam.parse(req.params);
-	const comments = await CommentService.getComments(postId);
+	const comments = await CommentService.getComments(postId, req.auth?.userId);
 	return res.status(200).json({ data: comments });
 };
 
@@ -25,7 +25,8 @@ export const createComment = async (req: Request, res: Response) => {
 		postId,
 		userId,
 		content,
-		parentId: parentId ?? null
+		parentId: parentId ?? null,
+		accountStatus: req.auth?.accountStatus
 	});
 	return res.status(201).json(comment);
 };

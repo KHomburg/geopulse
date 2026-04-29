@@ -107,6 +107,53 @@ describe("Post routes (SQLite)", () => {
 			expect(res.body.authorId).toBeNull();
 			expect(res.body.authorPseudonym).toBeNull();
 		});
+
+		it("blocks post creation for read-only accounts", async () => {
+			const UserModel = (await import("../user/user.model")).default;
+			await UserModel.update(
+				{ accountStatus: "read_only_timeout" },
+				{ where: { email: userEmail } }
+			);
+
+			await request(App)
+				.post("/api/v1/posts")
+				.set("Authorization", `Bearer ${authToken}`)
+				.send(basePost)
+				.expect(403);
+
+			await UserModel.update(
+				{ accountStatus: "active" },
+				{ where: { email: userEmail } }
+			);
+		});
+
+		it("stores shadow-banned posts as hidden from public feeds", async () => {
+			const UserModel = (await import("../user/user.model")).default;
+			await UserModel.update(
+				{ accountStatus: "shadow_banned" },
+				{ where: { email: userEmail } }
+			);
+
+			const created = await request(App)
+				.post("/api/v1/posts")
+				.set("Authorization", `Bearer ${authToken}`)
+				.send(basePost)
+				.expect(201);
+
+			await request(App)
+				.get(`/api/v1/posts/${created.body.id}`)
+				.expect(404);
+
+			await request(App)
+				.get(`/api/v1/posts/${created.body.id}`)
+				.set("Authorization", `Bearer ${authToken}`)
+				.expect(200);
+
+			await UserModel.update(
+				{ accountStatus: "active" },
+				{ where: { email: userEmail } }
+			);
+		});
 	});
 
 	describe("GET /api/v1/posts/:id", () => {
@@ -126,6 +173,36 @@ describe("Post routes (SQLite)", () => {
 
 		it("returns 404 for non-existent post", async () => {
 			await request(App).get("/api/v1/posts/99999").expect(404);
+		});
+
+		it("hides posts that are pending moderation", async () => {
+			const created = await request(App)
+				.post("/api/v1/posts")
+				.set("Authorization", `Bearer ${authToken}`)
+				.send(basePost)
+				.expect(201);
+
+			const PostModel = (await import("./post.model")).default;
+			await PostModel.update(
+				{ moderationStatus: "hidden_pending_review" },
+				{ where: { id: created.body.id } }
+			);
+
+			await request(App)
+				.get(`/api/v1/posts/${created.body.id}`)
+				.expect(404);
+
+			const feed = await request(App)
+				.get(
+					"/api/v1/posts?lat=48.8566&lng=2.3522&radiusKm=20&filter=today"
+				)
+				.expect(200);
+
+			expect(
+				(feed.body.data as Array<{ id: number }>).some(
+					(post) => post.id === created.body.id
+				)
+			).toBe(false);
 		});
 	});
 

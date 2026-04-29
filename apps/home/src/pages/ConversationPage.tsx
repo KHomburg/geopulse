@@ -13,6 +13,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAuthStore } from "../store/auth.store";
 import { messagesApi, type Message } from "../api/messages.api";
 import { subscribeRealtime } from "../realtime/realtime.client";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 function timeAgo(dateStr: string): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
@@ -26,13 +27,15 @@ function timeAgo(dateStr: string): string {
 
 const ConversationPage = () => {
 	const { conversationId } = useParams<{ conversationId: string }>();
-	const { isAuthenticated, userId } = useAuthStore();
+	const { isAuthenticated, userId, accountNotice } = useAuthStore();
+	const isWriteBlocked = accountNotice?.kind === "read_only";
 	const navigate = useNavigate();
 
 	const [messages, setMessages] = useState<Message[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [content, setContent] = useState("");
 	const [sending, setSending] = useState(false);
+	const [sendError, setSendError] = useState<string | null>(null);
 	const [typingUserId, setTypingUserId] = useState<number | null>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const typingClearRef = useRef<number | null>(null);
@@ -115,7 +118,7 @@ const ConversationPage = () => {
 
 	const handleSend = async () => {
 		const trimmed = content.trim();
-		if (!trimmed || sending) return;
+		if (!trimmed || sending || isWriteBlocked) return;
 		setSending(true);
 		try {
 			const { data: msg } = await messagesApi.sendMessage(
@@ -129,6 +132,9 @@ const ConversationPage = () => {
 				return [...prev, msg];
 			});
 			setContent("");
+			setSendError(null);
+		} catch (error: unknown) {
+			setSendError(getApiErrorMessage(error, "Failed to send message"));
 		} finally {
 			setSending(false);
 		}
@@ -136,7 +142,7 @@ const ConversationPage = () => {
 
 	const handleContentChange = (nextValue: string) => {
 		setContent(nextValue);
-		if (!convId || !nextValue.trim()) return;
+		if (!convId || !nextValue.trim() || isWriteBlocked) return;
 
 		const now = Date.now();
 		if (now - lastTypingSentAtRef.current < 1_500) return;
@@ -291,11 +297,26 @@ const ConversationPage = () => {
 					background: "rgba(10,10,10,0.98)"
 				}}
 			>
+				{accountNotice?.kind === "read_only" && (
+					<Text c="yellow" size="xs" mb={8}>
+						{accountNotice.message}
+					</Text>
+				)}
+				{sendError && (
+					<Text c="red" size="xs" mb={8}>
+						{sendError}
+					</Text>
+				)}
 				<Group gap={8} wrap="nowrap">
 					<TextInput
 						style={{ flex: 1 }}
-						placeholder="Type a message…"
+						placeholder={
+							isWriteBlocked
+								? "Messaging is disabled while your account is read-only"
+								: "Type a message…"
+						}
 						value={content}
+						disabled={isWriteBlocked}
 						onChange={(e) =>
 							handleContentChange(e.currentTarget.value)
 						}
@@ -315,12 +336,13 @@ const ConversationPage = () => {
 					<ActionIcon
 						size="lg"
 						radius="xl"
-						disabled={!content.trim() || sending}
+						disabled={isWriteBlocked || !content.trim() || sending}
 						onClick={handleSend}
 						style={{
-							background: content.trim()
-								? "linear-gradient(135deg, #6c63ff, #8b85ff)"
-								: "#2a2a2a",
+							background:
+								content.trim() && !isWriteBlocked
+									? "linear-gradient(135deg, #6c63ff, #8b85ff)"
+									: "#2a2a2a",
 							color: "#fff",
 							flexShrink: 0
 						}}

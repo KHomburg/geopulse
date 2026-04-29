@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { AuthMiddleware } from "../../shared/middleware/auth.middleware";
+import { requireWriteEnabledAccount } from "../../shared/middleware/accountStatus.middleware";
 import { asyncHandler } from "../../shared/middleware/asyncHandler";
 import {
 	getLiveLoungeMessages,
@@ -20,6 +21,7 @@ RoomRouter.get(
 );
 RoomRouter.post(
 	"/trusted-locals/messages",
+	requireWriteEnabledAccount,
 	asyncHandler(sendTrustedLocalMessage)
 );
 RoomRouter.get(
@@ -28,6 +30,7 @@ RoomRouter.get(
 );
 RoomRouter.post(
 	"/live-lounges/:roomKey/messages",
+	requireWriteEnabledAccount,
 	asyncHandler(sendLiveLoungeMessage)
 );
 

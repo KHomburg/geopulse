@@ -18,8 +18,10 @@ import { NotificationRouter } from "../../modules/notification/notification.rout
 import { RealtimeRouter } from "../../modules/realtime/realtime.routes";
 import { CommentRouter } from "../../modules/comment/comment.routes";
 import { ActivityRouter } from "../../modules/activity/activity.routes";
+import { AdminRouter } from "../../modules/admin/admin.routes";
 import { GhostRouter } from "../../modules/ghost/ghost.routes";
 import { RoomRouter } from "../../modules/room/room.routes";
+import { ReportRouter } from "../../modules/report/report.routes";
 import {
 	BookmarkRouter,
 	MyBookmarksRouter
@@ -35,6 +37,17 @@ import "./models.associations";
 
 // Const variable
 const App: Express = express();
+
+function isAllowedLocalDevOrigin(origin: string) {
+	if (process.env.NODE_ENV === "production") return false;
+
+	try {
+		const parsed = new URL(origin);
+		return ["localhost", "127.0.0.1"].includes(parsed.hostname);
+	} catch {
+		return false;
+	}
+}
 
 // logging middleware
 App.use(morgan("dev"));
@@ -60,10 +73,24 @@ App.use(helmet());
 // Use CORS with allowlist
 const origins = (config.CORS_ALLOWED_ORIGINS || "")
 	.split(",")
-	.map((o) => o.trim());
+	.map((o) => o.trim())
+	.filter(Boolean);
+const allowAnyOrigin = origins.includes("*");
 App.use(
 	cors({
-		origin: origins.includes("*") ? true : origins,
+		origin: (origin, callback) => {
+			if (
+				!origin ||
+				allowAnyOrigin ||
+				origins.includes(origin) ||
+				isAllowedLocalDevOrigin(origin)
+			) {
+				callback(null, true);
+				return;
+			}
+
+			callback(new Error("Not allowed by CORS"));
+		},
 		credentials: true
 	})
 );
@@ -93,8 +120,14 @@ App.get("/api/v1/health", (req, res) => {
 // Users
 App.use("/api/v1/user", UserRouter);
 
+// Admin
+App.use("/api/v1/admin", AdminRouter);
+
 // Auth
 App.use("/api/v1/auth", AuthRouter);
+
+// Reports
+App.use("/api/v1/reports", ReportRouter);
 
 // Posts
 App.use("/api/v1/posts", PostRouter);

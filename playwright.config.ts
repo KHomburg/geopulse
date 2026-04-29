@@ -35,7 +35,8 @@ export default defineConfig({
 			stderr: "pipe"
 		},
 		{
-			command: "npm run dev --workspace=apps/home",
+			command:
+				"npm run dev --workspace=apps/home -- --port 5173 --strictPort",
 			url: "http://localhost:5173",
 			reuseExistingServer: !process.env.CI,
 			timeout: 30_000,

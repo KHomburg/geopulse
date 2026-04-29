@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { AuthMiddleware } from "../../shared/middleware/auth.middleware";
+import { requireWriteEnabledAccount } from "../../shared/middleware/accountStatus.middleware";
 import { asyncHandler } from "../../shared/middleware/asyncHandler";
 import {
 	toggleBookmark,
@@ -10,7 +11,12 @@ import {
 const BookmarkRouter = Router({ mergeParams: true });
 
 // Nested under /posts/:postId/bookmark
-BookmarkRouter.post("/", AuthMiddleware, asyncHandler(toggleBookmark));
+BookmarkRouter.post(
+	"/",
+	AuthMiddleware,
+	requireWriteEnabledAccount,
+	asyncHandler(toggleBookmark)
+);
 BookmarkRouter.get("/", AuthMiddleware, asyncHandler(checkBookmark));
 
 export { BookmarkRouter };

@@ -125,7 +125,11 @@ export const createPost = async (req: Request, res: Response) => {
 		});
 	}
 
-	const post = await PostService.createPost({ ...body, userId });
+	const post = await PostService.createPost({
+		...body,
+		userId,
+		accountStatus: req.auth?.accountStatus
+	});
 	const plain = typeof post.toJSON === "function" ? post.toJSON() : post;
 	return res
 		.status(201)
@@ -134,10 +138,10 @@ export const createPost = async (req: Request, res: Response) => {
 
 export const getPost = async (req: Request, res: Response) => {
 	const { id } = PostIdParamSchema.parse(req.params);
-	const post = await PostService.getPostById(id);
+	const requesterId = req.id ? Number(req.id) : undefined;
+	const post = await PostService.getPostById(id, requesterId);
 	if (!post) return res.status(404).json({ message: "Post not found" });
 	const plain = typeof post.toJSON === "function" ? post.toJSON() : post;
-	const requesterId = req.id ? Number(req.id) : undefined;
 	const lat = Number(req.query.lat);
 	const lng = Number(req.query.lng);
 	const requesterCoords =
@@ -155,8 +159,12 @@ export const getFeed = async (req: Request, res: Response) => {
 				.map((tag) => tag.trim().toLowerCase())
 				.filter(Boolean)
 		: [];
-	const posts = await PostService.getFeed({ ...query, tags });
 	const requesterId = req.id ? Number(req.id) : undefined;
+	const posts = await PostService.getFeed({
+		...query,
+		tags,
+		requesterId
+	});
 	const data = posts.map((p) => {
 		const plain = typeof p.toJSON === "function" ? p.toJSON() : p;
 		return sanitizePost(plain as Record<string, unknown>, requesterId, {

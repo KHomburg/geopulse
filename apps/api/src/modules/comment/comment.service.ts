@@ -1,7 +1,8 @@
 import { CommentRepository } from "./comment.repository";
-import Post from "../post/post.model";
+import PostRepository from "../post/post.repository";
 import NotificationService from "../notification/notification.service";
 import { ActivityService } from "../../shared/activity/activity.service";
+import type { AccountStatus } from "../../shared/auth/auth.types";
 
 const CommentService = {
 	async createComment(params: {
@@ -9,12 +10,22 @@ const CommentService = {
 		userId: number;
 		content: string;
 		parentId?: number | null;
+		accountStatus?: AccountStatus;
 	}) {
-		const post = await Post.findByPk(params.postId);
+		const post = await PostRepository.findByIdForViewer(
+			params.postId,
+			params.userId
+		);
 		if (!post) {
 			throw Object.assign(new Error("Post not found"), { status: 404 });
 		}
-		const comment = await CommentRepository.create(params);
+		const comment = await CommentRepository.create({
+			...params,
+			moderationStatus:
+				params.accountStatus === "shadow_banned"
+					? "shadow_hidden"
+					: "published"
+		});
 		ActivityService.recordActivity({
 			userId: params.userId,
 			lat: post.obfuscatedLat,
@@ -53,8 +64,8 @@ const CommentService = {
 		return comment;
 	},
 
-	async getComments(postId: number) {
-		return CommentRepository.findByPost(postId);
+	async getComments(postId: number, requesterId?: number) {
+		return CommentRepository.findByPost(postId, requesterId);
 	},
 
 	async deleteComment(id: number, userId: number) {

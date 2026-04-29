@@ -11,6 +11,8 @@ import Comment from "../../modules/comment/comment.model";
 import Bookmark from "../../modules/bookmark/bookmark.model";
 import GhostShare from "../../modules/ghost/ghostShare.model";
 import RoomMessage from "../../modules/room/roomMessage.model";
+import Report from "../../modules/report/report.model";
+import AdminActionLog from "../../modules/admin/adminActionLog.model";
 
 // User <-> RefreshToken
 User.hasMany(RefreshToken, { foreignKey: "userId", as: "refreshTokens" });
@@ -96,3 +98,24 @@ GhostShare.belongsTo(User, { foreignKey: "userId", as: "user" });
 // Room messages
 User.hasMany(RoomMessage, { foreignKey: "userId", as: "roomMessages" });
 RoomMessage.belongsTo(User, { foreignKey: "userId", as: "author" });
+
+// Reports
+User.hasMany(Report, { foreignKey: "reporterId", as: "reports" });
+Report.belongsTo(User, { foreignKey: "reporterId", as: "reporter" });
+User.hasMany(Report, {
+	foreignKey: "targetUserId",
+	as: "reportsAgainstUser"
+});
+Report.belongsTo(User, { foreignKey: "targetUserId", as: "targetUser" });
+
+// Admin action logs
+User.hasMany(AdminActionLog, { foreignKey: "actorId", as: "adminActions" });
+AdminActionLog.belongsTo(User, { foreignKey: "actorId", as: "actor" });
+User.hasMany(AdminActionLog, {
+	foreignKey: "targetUserId",
+	as: "adminActionsAgainstUser"
+});
+AdminActionLog.belongsTo(User, {
+	foreignKey: "targetUserId",
+	as: "targetUser"
+});

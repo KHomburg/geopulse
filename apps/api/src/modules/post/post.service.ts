@@ -4,6 +4,7 @@ import type { AnonymityMode } from "./post.model";
 import UserRepository from "../user/user.repository";
 import { ActivityService } from "../../shared/activity/activity.service";
 import { TRUSTED_LOCALS_MIN_KARMA } from "../user/user.perks";
+import type { AccountStatus } from "../../shared/auth/auth.types";
 
 // Degrees per km (approximate)
 const DEG_PER_KM = 1 / 111.32;
@@ -42,6 +43,7 @@ export interface CreatePostInput {
 	dropHint?: string;
 	dropUnlockRadiusMeters?: number;
 	isSuperLocalLegend?: boolean;
+	accountStatus?: AccountStatus;
 	lat: number;
 	lng: number;
 	isStory: boolean;
@@ -198,6 +200,10 @@ export const PostService = {
 			boostedUntil: input.isSuperLocalLegend
 				? new Date(Date.now() + 60 * 60 * 1000)
 				: null,
+			moderationStatus:
+				input.accountStatus === "shadow_banned"
+					? "shadow_hidden"
+					: "published",
 			isStory: input.isStory,
 			expiresAt
 		}).then((post) => {
@@ -212,8 +218,8 @@ export const PostService = {
 		});
 	},
 
-	async getPostById(id: number) {
-		return PostRepository.findById(id);
+	async getPostById(id: number, requesterId?: number) {
+		return PostRepository.findByIdForViewer(id, requesterId);
 	},
 
 	async getFeed(params: {
@@ -224,6 +230,7 @@ export const PostService = {
 		tags?: string[];
 		limit: number;
 		offset: number;
+		requesterId?: number;
 	}) {
 		const bbox = buildBoundingBox(params.lat, params.lng, params.radiusKm);
 		const since = timeFilterToDate(params.filter);
@@ -234,7 +241,8 @@ export const PostService = {
 			...bbox,
 			since,
 			limit: fetchLimit,
-			offset: params.tags?.length ? 0 : params.offset
+			offset: params.tags?.length ? 0 : params.offset,
+			requesterId: params.requesterId
 		});
 		const filtered = filterPostsByTags(posts, normalizeTags(params.tags));
 		return params.tags?.length
@@ -270,7 +278,8 @@ export const PostService = {
 			since,
 			limit: Math.max((params.offset + params.limit) * 3, 60),
 			offset: 0,
-			trustedOnly: true
+			trustedOnly: true,
+			requesterId: params.userId
 		});
 		const filtered = filterPostsByTags(posts, normalizeTags(params.tags));
 		return filtered.slice(params.offset, params.offset + params.limit);

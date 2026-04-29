@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { AuthMiddleware } from "../../shared/middleware/auth.middleware";
+import {
+	AuthMiddleware,
+	OptionalAuthMiddleware
+} from "../../shared/middleware/auth.middleware";
+import { requireWriteEnabledAccount } from "../../shared/middleware/accountStatus.middleware";
 import { asyncHandler } from "../../shared/middleware/asyncHandler";
 import {
 	getComments,
@@ -9,11 +13,17 @@ import {
 
 const CommentRouter = Router({ mergeParams: true });
 
-CommentRouter.get("/", asyncHandler(getComments));
-CommentRouter.post("/", AuthMiddleware, asyncHandler(createComment));
+CommentRouter.get("/", OptionalAuthMiddleware, asyncHandler(getComments));
+CommentRouter.post(
+	"/",
+	AuthMiddleware,
+	requireWriteEnabledAccount,
+	asyncHandler(createComment)
+);
 CommentRouter.delete(
 	"/:commentId",
 	AuthMiddleware,
+	requireWriteEnabledAccount,
 	asyncHandler(deleteComment)
 );
 

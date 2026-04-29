@@ -11,16 +11,21 @@ import {
 	Text
 } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/auth.store";
 import { userApi, type CurrentUser, type KarmaPerk } from "../api/user.api";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 const KarmaShopPage = () => {
 	const navigate = useNavigate();
+	const accountNotice = useAuthStore((state) => state.accountNotice);
+	const isWriteBlocked = accountNotice?.kind === "read_only";
 	const [user, setUser] = useState<CurrentUser | null>(null);
 	const [perks, setPerks] = useState<KarmaPerk[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [purchasingKey, setPurchasingKey] = useState<KarmaPerk["key"] | null>(
 		null
 	);
+	const [error, setError] = useState<string | null>(null);
 
 	const load = async () => {
 		setLoading(true);
@@ -39,11 +44,18 @@ const KarmaShopPage = () => {
 	}, []);
 
 	const handlePurchase = async (key: KarmaPerk["key"]) => {
+		if (isWriteBlocked) {
+			return;
+		}
+
 		setPurchasingKey(key);
 		try {
 			const { data } = await userApi.purchasePerk(key);
 			setUser(data);
+			setError(null);
 			await load();
+		} catch (err: unknown) {
+			setError(getApiErrorMessage(err, "Failed to unlock perk"));
 		} finally {
 			setPurchasingKey(null);
 		}
@@ -76,6 +88,17 @@ const KarmaShopPage = () => {
 				</Center>
 			) : (
 				<Stack gap="md">
+					{accountNotice?.kind === "read_only" && (
+						<Text size="sm" c="yellow">
+							{accountNotice.message}
+						</Text>
+					)}
+					{error && (
+						<Text size="sm" c="red">
+							{error}
+						</Text>
+					)}
+
 					<Paper
 						radius="lg"
 						style={{
@@ -150,12 +173,18 @@ const KarmaShopPage = () => {
 								<Button
 									variant={perk.owned ? "light" : "filled"}
 									color={perk.owned ? "gray" : "violet"}
-									disabled={perk.owned || !perk.affordable}
+									disabled={
+										isWriteBlocked ||
+										perk.owned ||
+										!perk.affordable
+									}
 									loading={purchasingKey === perk.key}
 									onClick={() => handlePurchase(perk.key)}
 								>
 									{perk.owned
 										? "Owned"
+										: isWriteBlocked
+										? "Read-only"
 										: perk.affordable
 										? "Unlock"
 										: "Need more karma"}

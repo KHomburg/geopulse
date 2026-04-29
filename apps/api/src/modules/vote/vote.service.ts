@@ -3,6 +3,7 @@ import PostRepository from "../post/post.repository";
 import type { VoteValue } from "./vote.model";
 import UserRepository from "../user/user.repository";
 import { ActivityService } from "../../shared/activity/activity.service";
+import type { AccountStatus } from "../../shared/auth/auth.types";
 
 export interface CastVoteResult {
 	status: "created" | "updated" | "unchanged";
@@ -13,7 +14,8 @@ export const VoteService = {
 	async castVote(
 		userId: number,
 		postId: number,
-		value: VoteValue
+		value: VoteValue,
+		accountStatus?: AccountStatus
 	): Promise<CastVoteResult | null> {
 		// Confirm the post exists
 		const post = await PostRepository.findById(postId);
@@ -26,12 +28,13 @@ export const VoteService = {
 
 		if (!existing) {
 			await VoteRepository.create(userId, postId, value);
-			delta = value;
+			delta = accountStatus === "shadow_banned" ? 0 : value;
 			status = "created";
 		} else if (existing.value !== value) {
 			// Switching vote: old vote removed, new vote applied (net delta = 2 * value)
 			await VoteRepository.update(existing.id, value);
-			delta = value - existing.value; // e.g. +1 to -1 gives delta = -2
+			delta =
+				accountStatus === "shadow_banned" ? 0 : value - existing.value; // e.g. +1 to -1 gives delta = -2
 			status = "updated";
 		} else {
 			status = "unchanged";
@@ -51,15 +54,23 @@ export const VoteService = {
 		}
 
 		// Refresh karma from DB
-		const refreshed = await PostRepository.findById(postId);
+		const refreshed =
+			delta === 0 ? post : await PostRepository.findById(postId);
 		return { status, karmaScore: refreshed?.karmaScore ?? post.karmaScore };
 	},
 
-	async removeVote(userId: number, postId: number): Promise<boolean> {
+	async removeVote(
+		userId: number,
+		postId: number,
+		accountStatus?: AccountStatus
+	): Promise<boolean> {
 		const existing = await VoteRepository.findByUserAndPost(userId, postId);
 		if (!existing) return false;
 
 		await VoteRepository.deleteByUserAndPost(userId, postId);
+		if (accountStatus === "shadow_banned") {
+			return true;
+		}
 		await PostRepository.incrementKarma(postId, -existing.value);
 		const post = await PostRepository.findById(postId);
 		if (post) {

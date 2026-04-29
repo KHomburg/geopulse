@@ -1,27 +1,64 @@
 import { create } from "zustand";
 import { authApi } from "../api/auth.api";
 
+type JwtAccountStatus =
+	| "active"
+	| "read_only_timeout"
+	| "shadow_banned"
+	| "banned";
+
+export interface AccountNotice {
+	kind: "read_only" | "banned";
+	message: string;
+}
+
 interface AuthState {
 	userId: number | null;
 	email: string | null;
 	isAuthenticated: boolean;
 	isLoading: boolean;
 	error: string | null;
+	accountNotice: AccountNotice | null;
 	login: (email: string, password: string) => Promise<void>;
 	register: (email: string, password: string) => Promise<void>;
 	logout: () => Promise<void>;
 	clearError: () => void;
+	clearAccountNotice: () => void;
 }
 
 function parseJwt(
 	token: string
-): { id: number; email: string; exp?: number } | null {
+): {
+	id: number;
+	email: string;
+	exp?: number;
+	accountStatus?: JwtAccountStatus;
+} | null {
 	try {
 		const payload = JSON.parse(atob(token.split(".")[1]));
-		return payload as { id: number; email: string; exp?: number };
+		return payload as {
+			id: number;
+			email: string;
+			exp?: number;
+			accountStatus?: JwtAccountStatus;
+		};
 	} catch {
 		return null;
 	}
+}
+
+function noticeFromAccountStatus(
+	accountStatus?: JwtAccountStatus
+): AccountNotice | null {
+	if (accountStatus === "read_only_timeout") {
+		return {
+			kind: "read_only",
+			message:
+				"Your account is temporarily read-only. You can still browse GeoPulse, but posting, messaging, voting, and other write actions are disabled."
+		};
+	}
+
+	return null;
 }
 
 function isTokenFresh(payload: { exp?: number } | null): boolean {
@@ -46,6 +83,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 	isAuthenticated: storedPayload !== null && isTokenFresh(storedPayload),
 	isLoading: false,
 	error: null,
+	accountNotice:
+		storedPayload !== null && isTokenFresh(storedPayload)
+			? noticeFromAccountStatus(storedPayload.accountStatus)
+			: null,
 
 	login: async (email, password) => {
 		set({ isLoading: true, error: null });
@@ -58,13 +99,17 @@ export const useAuthStore = create<AuthState>((set) => ({
 				isAuthenticated: true,
 				userId: payload?.id ?? null,
 				email: payload?.email ?? null,
+				accountNotice: noticeFromAccountStatus(payload?.accountStatus),
 				isLoading: false
 			});
 		} catch (err: unknown) {
 			const message =
 				(err as { response?: { data?: { message?: string } } })
 					?.response?.data?.message ?? "Login failed";
-			set({ error: message, isLoading: false });
+			set({
+				error: message === "Account is banned" ? null : message,
+				isLoading: false
+			});
 		}
 	},
 
@@ -81,6 +126,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 				isAuthenticated: true,
 				userId: payload?.id ?? null,
 				email: payload?.email ?? null,
+				accountNotice: noticeFromAccountStatus(payload?.accountStatus),
 				isLoading: false
 			});
 		} catch (err: unknown) {
@@ -97,11 +143,17 @@ export const useAuthStore = create<AuthState>((set) => ({
 		} finally {
 			localStorage.removeItem("gp_access_token");
 			localStorage.removeItem("gp_refresh_token");
-			set({ isAuthenticated: false, userId: null, email: null });
+			set({
+				isAuthenticated: false,
+				userId: null,
+				email: null,
+				accountNotice: null
+			});
 		}
 	},
 
-	clearError: () => set({ error: null })
+	clearError: () => set({ error: null }),
+	clearAccountNotice: () => set({ accountNotice: null })
 }));
 
 // When the axios interceptor clears tokens after a failed refresh, bring the
@@ -110,6 +162,39 @@ window.addEventListener("auth:expired", () => {
 	useAuthStore.setState({
 		isAuthenticated: false,
 		userId: null,
-		email: null
+		email: null,
+		accountNotice: null
 	});
+});
+
+window.addEventListener("auth:token-updated", (event) => {
+	const detail = (event as CustomEvent<{ token?: string }>).detail;
+	const payload = detail?.token ? parseJwt(detail.token) : null;
+	useAuthStore.setState({
+		isAuthenticated: payload !== null && isTokenFresh(payload),
+		userId: payload?.id ?? null,
+		email: payload?.email ?? null,
+		accountNotice: noticeFromAccountStatus(payload?.accountStatus)
+	});
+});
+
+window.addEventListener("auth:blocked", (event) => {
+	const detail = (event as CustomEvent<AccountNotice>).detail;
+	useAuthStore.setState({
+		isAuthenticated: false,
+		userId: null,
+		email: null,
+		accountNotice:
+			detail ??
+			({ kind: "banned", message: "Account is banned" } as AccountNotice)
+	});
+});
+
+window.addEventListener("auth:restricted", (event) => {
+	const detail = (event as CustomEvent<AccountNotice>).detail;
+	if (!detail) {
+		return;
+	}
+
+	useAuthStore.setState({ accountNotice: detail });
 });

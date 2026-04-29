@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { AuthMiddleware } from "../../shared/middleware/auth.middleware";
+import { requireWriteEnabledAccount } from "../../shared/middleware/accountStatus.middleware";
 import {
 	getConversations,
 	openConversation,
@@ -16,10 +17,26 @@ MessageRouter.use(AuthMiddleware);
 
 MessageRouter.get("/", getConversations);
 MessageRouter.get("/unread", getUnreadCount);
-MessageRouter.post("/with/:userId", openConversation);
+MessageRouter.post(
+	"/with/:userId",
+	requireWriteEnabledAccount,
+	openConversation
+);
 MessageRouter.get("/:conversationId/messages", getMessages);
-MessageRouter.post("/:conversationId/messages", sendMessage);
-MessageRouter.post("/:conversationId/typing", sendTyping);
-MessageRouter.patch("/:conversationId/read", markRead);
+MessageRouter.post(
+	"/:conversationId/messages",
+	requireWriteEnabledAccount,
+	sendMessage
+);
+MessageRouter.post(
+	"/:conversationId/typing",
+	requireWriteEnabledAccount,
+	sendTyping
+);
+MessageRouter.patch(
+	"/:conversationId/read",
+	requireWriteEnabledAccount,
+	markRead
+);
 
 export { MessageRouter };

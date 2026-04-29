@@ -24,6 +24,7 @@ import { bookmarksApi } from "../api/bookmarks.api";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useInboxStore } from "../store/inbox.store";
 import { POST_TAGS, type PostTagKey } from "../constants/postTags";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 const FILTER_OPTIONS = [
 	{ value: "now", label: "Last hour" },
@@ -63,11 +64,13 @@ const CommentItem = ({
 	comment,
 	postId,
 	currentUserId,
+	writeBlocked,
 	onDeleted
 }: {
 	comment: Comment;
 	postId: number;
 	currentUserId: number | null;
+	writeBlocked: boolean;
 	onDeleted: (id: number) => void;
 }) => (
 	<Box
@@ -91,6 +94,7 @@ const CommentItem = ({
 					size="xs"
 					variant="subtle"
 					color="red"
+					disabled={writeBlocked}
 					onClick={() =>
 						commentsApi
 							.deleteComment(postId, comment.id)
@@ -108,33 +112,54 @@ const CommentItem = ({
 );
 
 const PostCard = ({ post, onDelete }: PostCardProps) => {
-	const { isAuthenticated, userId } = useAuthStore();
+	const { isAuthenticated, userId, accountNotice } = useAuthStore();
 	const { votePost } = useFeedStore();
+	const isWriteBlocked = accountNotice?.kind === "read_only";
+	const writeBlockedMessage =
+		accountNotice?.kind === "read_only" ? accountNotice.message : null;
 	const [voteError, setVoteError] = useState<string | null>(null);
+	const [actionError, setActionError] = useState<string | null>(null);
 	const [showComments, setShowComments] = useState(false);
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [commentCount, setCommentCount] = useState(post.commentCount ?? 0);
 	const [loadingComments, setLoadingComments] = useState(false);
 	const [newComment, setNewComment] = useState("");
 	const [submittingComment, setSubmittingComment] = useState(false);
+	const [commentError, setCommentError] = useState<string | null>(null);
 	const [bookmarked, setBookmarked] = useState(false);
 	const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
+	const clearTransientMessage = (
+		setter: React.Dispatch<React.SetStateAction<string | null>>
+	) => {
+		window.setTimeout(() => setter(null), 3_000);
+	};
+
 	const handleVote = async (value: 1 | -1) => {
+		if (isWriteBlocked) {
+			return;
+		}
+
 		try {
 			await votePost(post.id, value);
-		} catch {
-			setVoteError("Vote failed — try again");
-			setTimeout(() => setVoteError(null), 3000);
+			setVoteError(null);
+		} catch (error: unknown) {
+			setVoteError(getApiErrorMessage(error, "Vote failed — try again"));
+			clearTransientMessage(setVoteError);
 		}
 	};
 
 	const handleDelete = async () => {
+		if (isWriteBlocked) {
+			return;
+		}
+
 		try {
 			await postsApi.deletePost(post.id);
 			onDelete?.(post.id);
-		} catch {
-			// Ignore
+		} catch (error: unknown) {
+			setActionError(getApiErrorMessage(error, "Failed to delete post"));
+			clearTransientMessage(setActionError);
 		}
 	};
 
@@ -154,7 +179,7 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 	};
 
 	const handleAddComment = async () => {
-		if (!newComment.trim() || submittingComment) return;
+		if (!newComment.trim() || submittingComment || isWriteBlocked) return;
 		setSubmittingComment(true);
 		try {
 			const added = await commentsApi.createComment(
@@ -164,8 +189,10 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 			setComments((prev) => [added, ...prev]);
 			setCommentCount((c) => c + 1);
 			setNewComment("");
-		} catch {
-			// ignore
+			setCommentError(null);
+		} catch (error: unknown) {
+			setCommentError(getApiErrorMessage(error, "Failed to add comment"));
+			clearTransientMessage(setCommentError);
 		} finally {
 			setSubmittingComment(false);
 		}
@@ -177,13 +204,17 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 	};
 
 	const toggleBookmark = async () => {
-		if (!isAuthenticated || bookmarkLoading) return;
+		if (!isAuthenticated || bookmarkLoading || isWriteBlocked) return;
 		setBookmarkLoading(true);
 		try {
 			const result = await bookmarksApi.toggleBookmark(post.id);
 			setBookmarked(result.bookmarked);
-		} catch {
-			// ignore
+			setActionError(null);
+		} catch (error: unknown) {
+			setActionError(
+				getApiErrorMessage(error, "Failed to update bookmark")
+			);
+			clearTransientMessage(setActionError);
 		} finally {
 			setBookmarkLoading(false);
 		}
@@ -312,7 +343,7 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 					<ActionIcon
 						variant="subtle"
 						size="sm"
-						disabled={!isAuthenticated}
+						disabled={!isAuthenticated || isWriteBlocked}
 						onClick={() => handleVote(1)}
 						style={{
 							color: post.karmaScore > 0 ? "#6c63ff" : "#555"
@@ -339,7 +370,7 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 					<ActionIcon
 						variant="subtle"
 						size="sm"
-						disabled={!isAuthenticated}
+						disabled={!isAuthenticated || isWriteBlocked}
 						onClick={() => handleVote(-1)}
 						style={{
 							color: post.karmaScore < 0 ? "#ff4757" : "#555"
@@ -375,7 +406,7 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 							variant="subtle"
 							size="sm"
 							onClick={toggleBookmark}
-							disabled={bookmarkLoading}
+							disabled={bookmarkLoading || isWriteBlocked}
 							style={{ color: bookmarked ? "#6c63ff" : "#555" }}
 							title={
 								bookmarked ? "Remove bookmark" : "Save bookmark"
@@ -390,6 +421,7 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 							color="red"
 							variant="subtle"
 							size="sm"
+							disabled={isWriteBlocked}
 							onClick={handleDelete}
 							title="Delete post"
 						>
@@ -399,51 +431,81 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 				</Group>
 			</Group>
 
+			{actionError && (
+				<Text size="xs" c="red" mt={8}>
+					{actionError}
+				</Text>
+			)}
+
 			{showComments && (
 				<Box mt={12}>
 					<Divider mb={10} color="#2a2a2a" />
 					{isAuthenticated && (
-						<Group gap={8} mb={12} wrap="nowrap" align="flex-end">
-							<Textarea
-								placeholder="Write a comment…"
-								value={newComment}
-								onChange={(e) =>
-									setNewComment(e.currentTarget.value)
-								}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" && !e.shiftKey) {
-										e.preventDefault();
-										handleAddComment();
-									}
-								}}
-								autosize
-								minRows={1}
-								maxRows={3}
-								style={{ flex: 1 }}
-								styles={{
-									input: {
-										background: "#1a1a1a",
-										border: "1px solid #2a2a2a",
-										color: "#f0f0f0",
-										fontSize: 13
-									}
-								}}
-							/>
-							<ActionIcon
-								variant="filled"
-								style={{
-									background: "#6c63ff",
-									color: "white"
-								}}
-								size="lg"
-								disabled={
-									!newComment.trim() || submittingComment
-								}
-								onClick={handleAddComment}
+						<>
+							{writeBlockedMessage && (
+								<Text size="xs" c="yellow" mb={8}>
+									{writeBlockedMessage}
+								</Text>
+							)}
+							<Group
+								gap={8}
+								mb={12}
+								wrap="nowrap"
+								align="flex-end"
 							>
-								↑
-							</ActionIcon>
-						</Group>
+								<Textarea
+									placeholder={
+										isWriteBlocked
+											? "Commenting is disabled while your account is read-only"
+											: "Write a comment…"
+									}
+									value={newComment}
+									disabled={isWriteBlocked}
+									onChange={(e) =>
+										setNewComment(e.currentTarget.value)
+									}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" && !e.shiftKey) {
+											e.preventDefault();
+											handleAddComment();
+										}
+									}}
+									autosize
+									minRows={1}
+									maxRows={3}
+									style={{ flex: 1 }}
+									styles={{
+										input: {
+											background: "#1a1a1a",
+											border: "1px solid #2a2a2a",
+											color: "#f0f0f0",
+											fontSize: 13
+										}
+									}}
+								/>
+								<ActionIcon
+									variant="filled"
+									style={{
+										background: "#6c63ff",
+										color: "white"
+									}}
+									size="lg"
+									disabled={
+										isWriteBlocked ||
+										!newComment.trim() ||
+										submittingComment
+									}
+									onClick={handleAddComment}
+								>
+									↑
+								</ActionIcon>
+							</Group>
+							{commentError && (
+								<Text size="xs" c="red" mb={8}>
+									{commentError}
+								</Text>
+							)}
+						</>
 					)}
 					{loadingComments ? (
 						<Center py={12}>
@@ -461,6 +523,7 @@ const PostCard = ({ post, onDelete }: PostCardProps) => {
 									comment={c}
 									postId={post.id}
 									currentUserId={userId}
+									writeBlocked={isWriteBlocked}
 									onDeleted={handleCommentDeleted}
 								/>
 							))}

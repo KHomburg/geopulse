@@ -1,5 +1,9 @@
 import { sequelize } from "../../shared/config/sequelize.config";
 import { DataTypes, Model } from "sequelize";
+import {
+	MODERATION_STATUSES,
+	type ModerationStatus
+} from "../../shared/moderation/moderation.types";
 
 export type AnonymityMode = "public" | "local_legend" | "anonymous";
 export type TimeFilter = "now" | "today" | "week";
@@ -20,6 +24,7 @@ export class Post extends Model {
 	declare dropHint: string | null;
 	declare dropUnlockRadiusMeters: number | null;
 	declare boostedUntil: Date | null;
+	declare moderationStatus: ModerationStatus;
 	declare isStory: boolean;
 	declare isActive: boolean;
 	declare expiresAt: Date | null;
@@ -90,6 +95,11 @@ Post.init(
 		boostedUntil: {
 			type: DataTypes.DATE,
 			allowNull: true
+		},
+		moderationStatus: {
+			type: DataTypes.ENUM(...MODERATION_STATUSES),
+			allowNull: false,
+			defaultValue: "published"
 		},
 		isStory: {
 			type: DataTypes.BOOLEAN,

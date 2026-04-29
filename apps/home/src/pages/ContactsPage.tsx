@@ -20,6 +20,7 @@ import {
 	type ContactUser
 } from "../api/contacts.api";
 import apiClient from "../api/client";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 function getOtherUser(contact: Contact, myId: number): ContactUser | undefined {
 	if (contact.requesterId === myId) return contact.addressee;
@@ -37,7 +38,8 @@ function userInitials(user: ContactUser | undefined): string {
 }
 
 const ContactsPage = () => {
-	const { isAuthenticated, userId } = useAuthStore();
+	const { isAuthenticated, userId, accountNotice } = useAuthStore();
+	const isWriteBlocked = accountNotice?.kind === "read_only";
 	const navigate = useNavigate();
 
 	const [friends, setFriends] = useState<Contact[]>([]);
@@ -45,6 +47,7 @@ const ContactsPage = () => {
 	const [sent, setSent] = useState<Contact[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [activeTab, setActiveTab] = useState<string | null>("friends");
+	const [actionError, setActionError] = useState<string | null>(null);
 
 	// Search state
 	const [searchQuery, setSearchQuery] = useState("");
@@ -73,13 +76,35 @@ const ContactsPage = () => {
 	}, [isAuthenticated]);
 
 	const handleAccept = async (contactId: number) => {
-		await contactsApi.acceptRequest(contactId);
-		await load();
+		if (isWriteBlocked) {
+			return;
+		}
+
+		try {
+			await contactsApi.acceptRequest(contactId);
+			setActionError(null);
+			await load();
+		} catch (error: unknown) {
+			setActionError(
+				getApiErrorMessage(error, "Failed to accept request")
+			);
+		}
 	};
 
 	const handleDecline = async (contactId: number) => {
-		await contactsApi.declineOrRemove(contactId);
-		await load();
+		if (isWriteBlocked) {
+			return;
+		}
+
+		try {
+			await contactsApi.declineOrRemove(contactId);
+			setActionError(null);
+			await load();
+		} catch (error: unknown) {
+			setActionError(
+				getApiErrorMessage(error, "Failed to update contact")
+			);
+		}
 	};
 
 	const handleSearch = (q: string) => {
@@ -106,10 +131,19 @@ const ContactsPage = () => {
 	};
 
 	const handleSendRequest = async (targetUserId: number) => {
-		await contactsApi.sendRequest(targetUserId);
-		// Refresh sent list
-		const { data } = await contactsApi.getSentRequests();
-		setSent(data.data);
+		if (isWriteBlocked) {
+			return;
+		}
+
+		try {
+			await contactsApi.sendRequest(targetUserId);
+			setActionError(null);
+			// Refresh sent list
+			const { data } = await contactsApi.getSentRequests();
+			setSent(data.data);
+		} catch (error: unknown) {
+			setActionError(getApiErrorMessage(error, "Failed to send request"));
+		}
 	};
 
 	if (!isAuthenticated) {
@@ -151,6 +185,16 @@ const ContactsPage = () => {
 			</Box>
 
 			<Box px={16} pb={8}>
+				{accountNotice?.kind === "read_only" && (
+					<Text size="xs" c="yellow" mb={8}>
+						{accountNotice.message}
+					</Text>
+				)}
+				{actionError && (
+					<Text size="xs" c="red" mb={8}>
+						{actionError}
+					</Text>
+				)}
 				<TextInput
 					placeholder="Search people…"
 					value={searchQuery}
@@ -252,6 +296,9 @@ const ContactsPage = () => {
 														size="xs"
 														color="violet"
 														variant="filled"
+														disabled={
+															isWriteBlocked
+														}
 														onClick={() =>
 															handleSendRequest(
 																u.id
@@ -396,6 +443,9 @@ const ContactsPage = () => {
 																size="xs"
 																variant="subtle"
 																color="red"
+																disabled={
+																	isWriteBlocked
+																}
 																onClick={() =>
 																	handleDecline(
 																		contact.id
@@ -481,6 +531,9 @@ const ContactsPage = () => {
 															<Button
 																size="xs"
 																color="violet"
+																disabled={
+																	isWriteBlocked
+																}
 																onClick={() =>
 																	handleAccept(
 																		contact.id
@@ -497,6 +550,9 @@ const ContactsPage = () => {
 																size="xs"
 																variant="subtle"
 																color="gray"
+																disabled={
+																	isWriteBlocked
+																}
 																onClick={() =>
 																	handleDecline(
 																		contact.id

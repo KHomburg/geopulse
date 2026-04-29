@@ -5,6 +5,31 @@ import {
 	signAccessToken,
 	generateRefreshTokenValue
 } from "./auth.utils";
+import { resolveTrustRole } from "../../shared/auth/auth.types";
+
+function assertSessionAllowed(user: {
+	id: number;
+	accountStatus: "active" | "read_only_timeout" | "shadow_banned" | "banned";
+}) {
+	if (user.accountStatus === "banned") {
+		throw Object.assign(new Error("Account is banned"), { status: 403 });
+	}
+}
+
+function buildAccessTokenPayload(user: {
+	id: number;
+	email: string;
+	role: "user" | "trusted_user" | "community_mod" | "admin";
+	accountStatus: "active" | "read_only_timeout" | "shadow_banned" | "banned";
+	isTrusted: boolean;
+}) {
+	return {
+		id: user.id,
+		email: user.email,
+		role: resolveTrustRole(user.role, user.isTrusted),
+		accountStatus: user.accountStatus
+	};
+}
 
 export const AuthService = {
 	async register(payload: { email: string; password: string }) {
@@ -25,10 +50,19 @@ export const AuthService = {
 		if (!user) return null;
 		const valid = await comparePassword(payload.password, user.password);
 		if (!valid) return null;
-		const accessToken = signAccessToken({
+		assertSessionAllowed({
 			id: user.id as number,
-			email: user.email
+			accountStatus: user.accountStatus
 		});
+		const accessToken = signAccessToken(
+			buildAccessTokenPayload({
+				id: user.id as number,
+				email: user.email,
+				role: user.role,
+				accountStatus: user.accountStatus,
+				isTrusted: user.isTrusted
+			})
+		);
 		const refreshValue = generateRefreshTokenValue();
 		const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 		await AuthRepository.createRefreshToken({
@@ -48,6 +82,10 @@ export const AuthService = {
 		if (!rt) return null;
 		const user = await AuthRepository.findUserById(rt.userId);
 		if (!user) return null;
+		assertSessionAllowed({
+			id: user.id as number,
+			accountStatus: user.accountStatus
+		});
 		// rotate token: revoke old, create new
 		await AuthRepository.revokeRefreshToken(token);
 		const newValue = generateRefreshTokenValue();
@@ -57,10 +95,15 @@ export const AuthService = {
 			token: newValue,
 			expiresAt
 		});
-		const accessToken = signAccessToken({
-			id: rt.userId,
-			email: user.email
-		});
+		const accessToken = signAccessToken(
+			buildAccessTokenPayload({
+				id: rt.userId,
+				email: user.email,
+				role: user.role,
+				accountStatus: user.accountStatus,
+				isTrusted: user.isTrusted
+			})
+		);
 		return { token: accessToken, refreshToken: newValue };
 	},
 

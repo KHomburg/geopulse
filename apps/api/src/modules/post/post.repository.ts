@@ -4,6 +4,10 @@ import Comment from "../comment/comment.model";
 import type { AnonymityMode } from "./post.model";
 import User from "../user/user.model";
 import { TRUSTED_LOCALS_MIN_KARMA } from "../user/user.perks";
+import {
+	PUBLISHED_MODERATION_STATUS,
+	type ModerationStatus
+} from "../../shared/moderation/moderation.types";
 
 export interface CreatePostPayload {
 	userId: number;
@@ -18,6 +22,7 @@ export interface CreatePostPayload {
 	dropHint?: string | null;
 	dropUnlockRadiusMeters?: number | null;
 	boostedUntil?: Date | null;
+	moderationStatus?: ModerationStatus;
 	isStory: boolean;
 	expiresAt?: Date | null;
 }
@@ -38,7 +43,7 @@ function commentCountAttributes() {
 		include: [
 			[
 				Sequelize.literal(
-					`(SELECT COUNT(*) FROM \`comment\` WHERE \`comment\`.\`postId\` = \`Post\`.\`id\` AND \`comment\`.\`deletedAt\` IS NULL)`
+					`(SELECT COUNT(*) FROM \`comment\` WHERE \`comment\`.\`postId\` = \`Post\`.\`id\` AND \`comment\`.\`deletedAt\` IS NULL AND \`comment\`.\`moderationStatus\` = '${PUBLISHED_MODERATION_STATUS}')`
 				),
 				"commentCount"
 			]
@@ -55,8 +60,35 @@ export const PostRepository = {
 	},
 
 	async findById(id: number): Promise<Post | null> {
+		return PostRepository.findByIdForViewer(id);
+	},
+
+	async findByIdForViewer(
+		id: number,
+		requesterId?: number
+	): Promise<Post | null> {
 		return Post.findOne({
-			where: { id, isActive: true },
+			where:
+				requesterId == null
+					? {
+							id,
+							isActive: true,
+							moderationStatus: PUBLISHED_MODERATION_STATUS
+					  }
+					: {
+							id,
+							isActive: true,
+							[Op.or]: [
+								{
+									moderationStatus:
+										PUBLISHED_MODERATION_STATUS
+								},
+								{
+									userId: requesterId,
+									moderationStatus: "shadow_hidden"
+								}
+							]
+					  },
 			attributes: commentCountAttributes(),
 			include: [
 				{
@@ -84,6 +116,37 @@ export const PostRepository = {
 		});
 	},
 
+	async findByIdForModeration(id: number): Promise<Post | null> {
+		return Post.findOne({
+			where: { id },
+			attributes: commentCountAttributes(),
+			include: [
+				{
+					model: User,
+					as: "author",
+					attributes: AUTHOR_ATTRS,
+					required: false
+				}
+			]
+		});
+	},
+
+	async findByIdsForModeration(ids: number[]): Promise<Post[]> {
+		if (!ids.length) return [];
+		return Post.findAll({
+			where: { id: { [Op.in]: ids } },
+			attributes: commentCountAttributes(),
+			include: [
+				{
+					model: User,
+					as: "author",
+					attributes: AUTHOR_ATTRS,
+					required: false
+				}
+			]
+		});
+	},
+
 	async findByLocation(params: {
 		minLat: number;
 		maxLat: number;
@@ -93,13 +156,40 @@ export const PostRepository = {
 		limit: number;
 		offset: number;
 		trustedOnly?: boolean;
+		requesterId?: number;
 	}): Promise<Post[]> {
+		const visibilityWhere =
+			params.requesterId == null
+				? { moderationStatus: PUBLISHED_MODERATION_STATUS }
+				: {
+						[Op.or]: [
+							{
+								moderationStatus: PUBLISHED_MODERATION_STATUS
+							},
+							{
+								userId: params.requesterId,
+								moderationStatus: "shadow_hidden"
+							}
+						]
+				  };
+
 		return Post.findAll({
 			where: {
 				isActive: true,
-				obfuscatedLat: { [Op.between]: [params.minLat, params.maxLat] },
-				obfuscatedLng: { [Op.between]: [params.minLng, params.maxLng] },
-				createdAt: { [Op.gte]: params.since }
+				[Op.and]: [
+					visibilityWhere,
+					{
+						obfuscatedLat: {
+							[Op.between]: [params.minLat, params.maxLat]
+						}
+					},
+					{
+						obfuscatedLng: {
+							[Op.between]: [params.minLng, params.maxLng]
+						}
+					},
+					{ createdAt: { [Op.gte]: params.since } }
+				]
 			},
 			attributes: commentCountAttributes(),
 			include: [
@@ -150,6 +240,7 @@ export const PostRepository = {
 		return Post.findAll({
 			where: {
 				isActive: true,
+				moderationStatus: PUBLISHED_MODERATION_STATUS,
 				obfuscatedLat: { [Op.between]: [params.minLat, params.maxLat] },
 				obfuscatedLng: { [Op.between]: [params.minLng, params.maxLng] },
 				createdAt: { [Op.gte]: params.since }
@@ -165,6 +256,17 @@ export const PostRepository = {
 	async softDeleteByIdAndUser(id: number, userId: number): Promise<boolean> {
 		const deleted = await Post.destroy({ where: { id, userId } });
 		return deleted > 0;
+	},
+
+	async updateModerationStatus(
+		id: number,
+		moderationStatus: ModerationStatus
+	): Promise<boolean> {
+		const [affected] = await Post.update(
+			{ moderationStatus },
+			{ where: { id } }
+		);
+		return affected > 0;
 	},
 
 	async deactivateExpiredStories(): Promise<number> {

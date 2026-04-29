@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { AuthMiddleware } from "../../shared/middleware/auth.middleware";
+import { requireWriteEnabledAccount } from "../../shared/middleware/accountStatus.middleware";
 import {
 	sendRequest,
 	acceptRequest,
@@ -20,9 +21,9 @@ ContactRouter.get("/friends", getFriends);
 ContactRouter.get("/requests/received", getPendingRequests);
 ContactRouter.get("/requests/sent", getSentRequests);
 ContactRouter.get("/status/:userId", getContactStatus);
-ContactRouter.post("/request/:userId", sendRequest);
-ContactRouter.patch("/:id/accept", acceptRequest);
-ContactRouter.delete("/:id", declineOrRemove);
-ContactRouter.post("/block/:userId", blockUser);
+ContactRouter.post("/request/:userId", requireWriteEnabledAccount, sendRequest);
+ContactRouter.patch("/:id/accept", requireWriteEnabledAccount, acceptRequest);
+ContactRouter.delete("/:id", requireWriteEnabledAccount, declineOrRemove);
+ContactRouter.post("/block/:userId", requireWriteEnabledAccount, blockUser);
 
 export { ContactRouter };

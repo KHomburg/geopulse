@@ -5,6 +5,7 @@ import {
 	type PerkKey,
 	TRUSTED_LOCALS_MIN_KARMA
 } from "./user.perks";
+import { resolveTrustRole } from "../../shared/auth/auth.types";
 
 export const UserService = {
 	async getUsers() {
@@ -73,9 +74,11 @@ export const UserService = {
 		}
 
 		const nextKarma = user.karmaScore - perk.cost;
+		const nextIsTrusted = nextKarma >= TRUSTED_LOCALS_MIN_KARMA;
 		const updates: Record<string, unknown> = {
 			karmaScore: nextKarma,
-			isTrusted: nextKarma >= TRUSTED_LOCALS_MIN_KARMA
+			isTrusted: nextIsTrusted,
+			role: resolveTrustRole(user.role, nextIsTrusted)
 		};
 
 		if (key === "pin_avatar_radar") {

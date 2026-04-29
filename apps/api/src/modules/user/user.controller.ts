@@ -34,7 +34,7 @@ const PurchasePerkSchema = z.object({
 
 export const GetMe = async (req: Request, res: Response): Promise<Response> => {
 	try {
-		const user = await UserService.getMe(Number(req.id));
+		const user = await UserService.getMe(req.auth?.userId as number);
 		if (!user) return res.status(404).json({ message: "User not found" });
 		return res.status(200).json(user);
 	} catch (error: unknown) {
@@ -48,7 +48,9 @@ export const GetPerkCatalog = async (
 	res: Response
 ): Promise<Response> => {
 	try {
-		const data = await UserService.getPerkCatalog(Number(req.id));
+		const data = await UserService.getPerkCatalog(
+			req.auth?.userId as number
+		);
 		return res.status(200).json({ data });
 	} catch (error: unknown) {
 		const status =
@@ -67,7 +69,10 @@ export const PurchasePerk = async (
 ): Promise<Response> => {
 	try {
 		const { key } = PurchasePerkSchema.parse(req.body);
-		const user = await UserService.purchasePerk(Number(req.id), key);
+		const user = await UserService.purchasePerk(
+			req.auth?.userId as number,
+			key
+		);
 		if (!user) return res.status(404).json({ message: "User not found" });
 		return res.status(200).json(user);
 	} catch (error: unknown) {

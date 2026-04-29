@@ -13,12 +13,16 @@ import { useNavigate, useParams } from "react-router-dom";
 import { roomsApi, type LiveLounge, type RoomMessage } from "../api/rooms.api";
 import { subscribeRealtime } from "../realtime/realtime.client";
 import { useFeedStore } from "../store/feed.store";
+import { useAuthStore } from "../store/auth.store";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 const LiveLoungePage = () => {
 	const { roomKey = "" } = useParams<{ roomKey: string }>();
 	const navigate = useNavigate();
 	const location = useFeedStore((state) => state.location);
+	const accountNotice = useAuthStore((state) => state.accountNotice);
+	const isWriteBlocked = accountNotice?.kind === "read_only";
 	const [messages, setMessages] = useState<RoomMessage[]>([]);
 	const [lounges, setLounges] = useState<LiveLounge[]>([]);
 	const [content, setContent] = useState("");
@@ -78,19 +82,31 @@ const LiveLoungePage = () => {
 	}, [roomKey]);
 
 	const handleSend = async () => {
-		if (!content.trim() || location.lat == null || location.lng == null)
+		if (
+			!content.trim() ||
+			location.lat == null ||
+			location.lng == null ||
+			isWriteBlocked
+		)
 			return;
-		const { data } = await roomsApi.sendLiveLoungeMessage(roomKey, {
-			content: content.trim(),
-			mediaUrl: mediaUrl.trim() || null,
-			lat: location.lat,
-			lng: location.lng
-		});
-		setMessages((prev) =>
-			prev.some((item) => item.id === data.id) ? prev : [...prev, data]
-		);
-		setContent("");
-		setMediaUrl("");
+		try {
+			const { data } = await roomsApi.sendLiveLoungeMessage(roomKey, {
+				content: content.trim(),
+				mediaUrl: mediaUrl.trim() || null,
+				lat: location.lat,
+				lng: location.lng
+			});
+			setMessages((prev) =>
+				prev.some((item) => item.id === data.id)
+					? prev
+					: [...prev, data]
+			);
+			setContent("");
+			setMediaUrl("");
+			setError(null);
+		} catch (err: unknown) {
+			setError(getApiErrorMessage(err, "Failed to send lounge message"));
+		}
 	};
 
 	return (
@@ -180,9 +196,19 @@ const LiveLoungePage = () => {
 						}}
 					>
 						<Stack gap="xs">
+							{accountNotice?.kind === "read_only" && (
+								<Text size="xs" c="yellow">
+									{accountNotice.message}
+								</Text>
+							)}
 							<TextInput
-								placeholder="Optional photo URL"
+								placeholder={
+									isWriteBlocked
+										? "Photo sharing is disabled while your account is read-only"
+										: "Optional photo URL"
+								}
 								value={mediaUrl}
+								disabled={isWriteBlocked}
 								onChange={(event) =>
 									setMediaUrl(event.currentTarget.value)
 								}
@@ -190,8 +216,13 @@ const LiveLoungePage = () => {
 							<Group wrap="nowrap">
 								<TextInput
 									style={{ flex: 1 }}
-									placeholder="Drop into the lounge"
+									placeholder={
+										isWriteBlocked
+											? "Lounge chat is disabled while your account is read-only"
+											: "Drop into the lounge"
+									}
 									value={content}
+									disabled={isWriteBlocked}
 									onChange={(event) =>
 										setContent(event.currentTarget.value)
 									}
@@ -205,6 +236,7 @@ const LiveLoungePage = () => {
 								<ActionIcon
 									variant="filled"
 									color="violet"
+									disabled={isWriteBlocked || !content.trim()}
 									onClick={() => void handleSend()}
 								>
 									↑

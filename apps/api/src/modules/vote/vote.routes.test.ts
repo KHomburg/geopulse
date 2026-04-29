@@ -9,6 +9,7 @@ import {
 import request from "supertest";
 import App from "../../shared/config/express.config";
 import { sequelize } from "../../shared/config/sequelize.config";
+import User from "../user/user.model";
 
 describe("Vote routes (SQLite)", () => {
 	let authToken: string;
@@ -155,5 +156,57 @@ describe("Vote routes (SQLite)", () => {
 			.set("Authorization", `Bearer ${authToken}`)
 			.send({ value: 5 })
 			.expect(400);
+	});
+
+	it("blocks voting for read-only accounts", async () => {
+		await User.update(
+			{ accountStatus: "read_only_timeout" },
+			{ where: { email: user1.email } }
+		);
+
+		await request(App)
+			.post(`/api/v1/posts/${postId}/votes`)
+			.set("Authorization", `Bearer ${authToken}`)
+			.send({ value: 1 })
+			.expect(403);
+
+		await User.update(
+			{ accountStatus: "active" },
+			{ where: { email: user1.email } }
+		);
+	});
+
+	it("stores shadow-banned votes without changing public karma", async () => {
+		await User.update(
+			{ accountStatus: "shadow_banned" },
+			{ where: { email: user1.email } }
+		);
+
+		const vote = await request(App)
+			.post(`/api/v1/posts/${postId}/votes`)
+			.set("Authorization", `Bearer ${authToken}`)
+			.send({ value: 1 })
+			.expect(200);
+
+		expect(vote.body.status).toBe("created");
+		expect(vote.body.karmaScore).toBe(0);
+
+		const myVote = await request(App)
+			.get(`/api/v1/posts/${postId}/votes/me`)
+			.set("Authorization", `Bearer ${authToken}`)
+			.expect(200);
+
+		expect(myVote.body.value).toBe(1);
+
+		const post = await request(App)
+			.get(`/api/v1/posts/${postId}`)
+			.expect(200);
+
+		expect(post.body.karmaScore).toBe(0);
+
+		await User.update(
+			{ accountStatus: "active" },
+			{ where: { email: user1.email } }
+		);
 	});
 });

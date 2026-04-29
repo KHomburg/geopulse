@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+	Alert,
 	Badge,
 	Box,
 	Button,
@@ -13,6 +14,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { postsApi, type AnonymityMode } from "../api/posts.api";
 import { useFeedStore } from "../store/feed.store";
+import { useAuthStore } from "../store/auth.store";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { POST_TAGS, type PostTagKey } from "../constants/postTags";
 import { userApi, type CurrentUser } from "../api/user.api";
@@ -26,6 +28,7 @@ const ANONYMITY_DATA = [
 const CreatePostPage = () => {
 	const navigate = useNavigate();
 	const { location, addPost } = useFeedStore();
+	const accountNotice = useAuthStore((state) => state.accountNotice);
 	useGeolocation();
 
 	const [content, setContent] = useState("");
@@ -48,11 +51,13 @@ const CreatePostPage = () => {
 			.catch(() => setCurrentUser(null));
 	}, []);
 
+	const isWriteBlocked = accountNotice?.kind === "read_only";
 	const canSubmit =
 		content.trim().length > 0 &&
 		(mode !== "local_legend" || pseudonym.trim().length > 0) &&
 		(postType !== "drop" || dropHint.trim().length > 0) &&
-		location.lat !== null;
+		location.lat !== null &&
+		!isWriteBlocked;
 
 	const toggleTag = (tag: PostTagKey) => {
 		setSelectedTags((current) => {
@@ -91,7 +96,7 @@ const CreatePostPage = () => {
 			const msg =
 				(err as { response?: { data?: { message?: string } } })
 					?.response?.data?.message ?? "Failed to post";
-			setError(msg);
+			setError(msg.toLowerCase().includes("read-only") ? "" : msg);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -137,6 +142,12 @@ const CreatePostPage = () => {
 			</Group>
 
 			<Stack gap="lg" style={{ flex: 1 }}>
+				{accountNotice?.kind === "read_only" && (
+					<Alert color="yellow" variant="light" radius="md">
+						{accountNotice.message}
+					</Alert>
+				)}
+
 				{/* Anonymity mode */}
 				<Box>
 					<Text

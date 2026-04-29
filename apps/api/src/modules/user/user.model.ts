@@ -1,5 +1,12 @@
 import { sequelize } from "../../shared/config/sequelize.config";
 import { DataTypes, Model } from "sequelize";
+import {
+	ACCOUNT_STATUSES,
+	USER_ROLES,
+	type AccountStatus,
+	type UserRole
+} from "../../shared/auth/auth.types";
+
 export class User extends Model {
 	declare id: number;
 	declare email: string;
@@ -7,6 +14,8 @@ export class User extends Model {
 	declare username: string | null;
 	declare displayName: string | null;
 	declare avatarUrl: string | null;
+	declare role: UserRole;
+	declare accountStatus: AccountStatus;
 	declare karmaScore: number;
 	declare isTrusted: boolean;
 	declare pinAvatar: string | null;
@@ -44,6 +53,16 @@ User.init(
 		avatarUrl: {
 			type: DataTypes.STRING,
 			allowNull: true
+		},
+		role: {
+			type: DataTypes.ENUM(...USER_ROLES),
+			allowNull: false,
+			defaultValue: "user"
+		},
+		accountStatus: {
+			type: DataTypes.ENUM(...ACCOUNT_STATUSES),
+			allowNull: false,
+			defaultValue: "active"
 		},
 		karmaScore: {
 			type: DataTypes.INTEGER,

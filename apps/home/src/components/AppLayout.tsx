@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Box, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Alert, Box, Stack, Text, UnstyledButton } from "@mantine/core";
 import { useAuthStore } from "../store/auth.store";
 import { messagesApi } from "../api/messages.api";
 import { notificationsApi } from "../api/notifications.api";
@@ -41,7 +41,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
-	const { isAuthenticated } = useAuthStore();
+	const { isAuthenticated, accountNotice } = useAuthStore();
 	const unreadMessages = useInboxStore((state) => state.unreadMessages);
 	const unreadNotifs = useInboxStore((state) => state.unreadNotifications);
 	const setUnreadMessages = useInboxStore((state) => state.setUnreadMessages);
@@ -90,6 +90,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 		setUnreadNotifications
 	]);
 
+	useEffect(() => {
+		if (accountNotice?.kind === "banned") {
+			navigate("/login", { replace: true });
+		}
+	}, [accountNotice, navigate]);
+
 	const badgeCounts: Record<string, number> = {
 		messages: unreadMessages,
 		notifications: unreadNotifs
@@ -127,6 +133,14 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 				position: "relative"
 			}}
 		>
+			{accountNotice?.kind === "read_only" && (
+				<Box style={{ padding: "12px 12px 0" }}>
+					<Alert color="yellow" variant="light" radius="md">
+						{accountNotice.message}
+					</Alert>
+				</Box>
+			)}
+
 			{/* Page content */}
 			<Box style={{ flex: 1, overflow: "hidden", position: "relative" }}>
 				{children}

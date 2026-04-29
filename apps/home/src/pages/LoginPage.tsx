@@ -16,7 +16,14 @@ import { useAuthStore } from "../store/auth.store";
 const LoginPage = () => {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
-	const { login, isLoading, error, clearError } = useAuthStore();
+	const {
+		login,
+		isLoading,
+		error,
+		accountNotice,
+		clearError,
+		clearAccountNotice
+	} = useAuthStore();
 	const navigate = useNavigate();
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -52,6 +59,20 @@ const LoginPage = () => {
 
 				<form onSubmit={handleSubmit}>
 					<Stack gap="md">
+						{accountNotice && (
+							<Alert
+								color={
+									accountNotice.kind === "banned"
+										? "red"
+										: "yellow"
+								}
+								onClose={clearAccountNotice}
+								withCloseButton
+							>
+								{accountNotice.message}
+							</Alert>
+						)}
+
 						{error && (
 							<Alert
 								color="red"

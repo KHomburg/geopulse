@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import User from "./user.model";
 import { TRUSTED_LOCALS_MIN_KARMA } from "./user.perks";
+import { resolveTrustRole } from "../../shared/auth/auth.types";
 
 export const UserRepository = {
 	async findAll() {
@@ -57,8 +58,12 @@ export const UserRepository = {
 		const user = await User.findByPk(id);
 		if (!user) return null;
 		const shouldBeTrusted = user.karmaScore >= TRUSTED_LOCALS_MIN_KARMA;
-		if (user.isTrusted !== shouldBeTrusted) {
-			await user.update({ isTrusted: shouldBeTrusted });
+		const nextRole = resolveTrustRole(user.role, shouldBeTrusted);
+		if (user.isTrusted !== shouldBeTrusted || user.role !== nextRole) {
+			await user.update({
+				isTrusted: shouldBeTrusted,
+				role: nextRole
+			});
 		}
 		return user;
 	},

@@ -15,6 +15,8 @@ import "./modules/comment/comment.model";
 import "./modules/bookmark/bookmark.model";
 import "./modules/ghost/ghostShare.model";
 import "./modules/room/roomMessage.model";
+import "./modules/report/report.model";
+import "./modules/admin/adminActionLog.model";
 import "./shared/config/models.associations";
 //#endregion
 

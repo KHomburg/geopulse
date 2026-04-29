@@ -37,7 +37,14 @@ const RegisterPage = () => {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirm, setConfirm] = useState("");
-	const { register, isLoading, error, clearError } = useAuthStore();
+	const {
+		register,
+		isLoading,
+		error,
+		accountNotice,
+		clearError,
+		clearAccountNotice
+	} = useAuthStore();
 	const navigate = useNavigate();
 
 	const strength = passwordStrength(password);
@@ -77,6 +84,20 @@ const RegisterPage = () => {
 
 				<form onSubmit={handleSubmit}>
 					<Stack gap="md">
+						{accountNotice && (
+							<Alert
+								color={
+									accountNotice.kind === "banned"
+										? "red"
+										: "yellow"
+								}
+								onClose={clearAccountNotice}
+								withCloseButton
+							>
+								{accountNotice.message}
+							</Alert>
+						)}
+
 						{error && (
 							<Alert
 								color="red"

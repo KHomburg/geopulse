@@ -7,7 +7,12 @@ export const castVote = async (req: Request, res: Response) => {
 	const { postId } = VotePostIdParamSchema.parse(req.params);
 	const { value } = CastVoteSchema.parse(req.body);
 
-	const result = await VoteService.castVote(userId, postId, value);
+	const result = await VoteService.castVote(
+		userId,
+		postId,
+		value,
+		req.auth?.accountStatus
+	);
 	if (!result) return res.status(404).json({ message: "Post not found" });
 
 	return res.status(200).json(result);
@@ -17,7 +22,11 @@ export const removeVote = async (req: Request, res: Response) => {
 	const userId = Number(req.id);
 	const { postId } = VotePostIdParamSchema.parse(req.params);
 
-	const removed = await VoteService.removeVote(userId, postId);
+	const removed = await VoteService.removeVote(
+		userId,
+		postId,
+		req.auth?.accountStatus
+	);
 	if (!removed) return res.status(404).json({ message: "Vote not found" });
 
 	return res.status(200).json({ message: "Vote removed" });

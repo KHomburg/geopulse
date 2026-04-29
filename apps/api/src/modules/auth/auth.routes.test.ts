@@ -6,9 +6,12 @@ import {
 	afterAll,
 	afterEach
 } from "@jest/globals";
+import jwt from "jsonwebtoken";
 import request from "supertest";
 import App from "../../shared/config/express.config";
 import { sequelize } from "../../shared/config/sequelize.config";
+import { config } from "../../shared/config/env.config";
+import User from "../user/user.model";
 
 describe("Auth routes (SQLite)", () => {
 	beforeAll(async () => {
@@ -61,6 +64,18 @@ describe("Auth routes (SQLite)", () => {
 			.expect(200);
 		expect(res.body.token).toBeDefined();
 		expect(typeof res.body.token).toBe("string");
+		const decoded = jwt.verify(
+			res.body.token as string,
+			config.TOKEN_KEY
+		) as {
+			id: number;
+			email: string;
+			role: string;
+			accountStatus: string;
+		};
+		expect(decoded.email).toBe(email);
+		expect(decoded.role).toBe("user");
+		expect(decoded.accountStatus).toBe("active");
 		expect(res.body.refreshToken).toBeDefined();
 		expect(typeof res.body.refreshToken).toBe("string");
 	});
@@ -75,6 +90,24 @@ describe("Auth routes (SQLite)", () => {
 			.post("/api/v1/auth/login")
 			.send({ email, password: "wrong" })
 			.expect(401);
+	});
+
+	it("blocks login for banned accounts", async () => {
+		const email = uniqueEmail();
+		const password = "secret123";
+		const registered = await request(App)
+			.post("/api/v1/auth/register")
+			.send({ email, password })
+			.expect(201);
+		await User.update(
+			{ accountStatus: "banned" },
+			{ where: { id: registered.body.id } }
+		);
+
+		await request(App)
+			.post("/api/v1/auth/login")
+			.send({ email, password })
+			.expect(403);
 	});
 
 	it("logs out successfully with a valid token", async () => {
@@ -127,6 +160,52 @@ describe("Auth routes (SQLite)", () => {
 			.post("/api/v1/auth/refresh")
 			.send({ refreshToken: oldRefresh })
 			.expect(401);
+	});
+
+	it("blocks refresh for banned accounts", async () => {
+		const email = uniqueEmail();
+		const password = "secret123";
+		const registered = await request(App)
+			.post("/api/v1/auth/register")
+			.send({ email, password })
+			.expect(201);
+		const login = await request(App)
+			.post("/api/v1/auth/login")
+			.send({ email, password })
+			.expect(200);
+
+		await User.update(
+			{ accountStatus: "banned" },
+			{ where: { id: registered.body.id } }
+		);
+
+		await request(App)
+			.post("/api/v1/auth/refresh")
+			.send({ refreshToken: login.body.refreshToken })
+			.expect(403);
+	});
+
+	it("rejects authenticated requests after an account is banned", async () => {
+		const email = uniqueEmail();
+		const password = "secret123";
+		const registered = await request(App)
+			.post("/api/v1/auth/register")
+			.send({ email, password })
+			.expect(201);
+		const login = await request(App)
+			.post("/api/v1/auth/login")
+			.send({ email, password })
+			.expect(200);
+
+		await User.update(
+			{ accountStatus: "banned" },
+			{ where: { id: registered.body.id } }
+		);
+
+		await request(App)
+			.get("/api/v1/user/me")
+			.set("Authorization", `Bearer ${login.body.token as string}`)
+			.expect(403);
 	});
 
 	it("deletes account for authenticated user", async () => {

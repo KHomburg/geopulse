@@ -17,7 +17,9 @@ import { postsApi, type Post } from "../api/posts.api";
 import { roomsApi, type RoomMessage } from "../api/rooms.api";
 import { subscribeRealtime } from "../realtime/realtime.client";
 import { useFeedStore } from "../store/feed.store";
+import { useAuthStore } from "../store/auth.store";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 function timeAgo(dateStr: string) {
 	const diff = Date.now() - new Date(dateStr).getTime();
@@ -32,6 +34,8 @@ function timeAgo(dateStr: string) {
 const TrustedLocalsPage = () => {
 	const navigate = useNavigate();
 	const location = useFeedStore((state) => state.location);
+	const accountNotice = useAuthStore((state) => state.accountNotice);
+	const isWriteBlocked = accountNotice?.kind === "read_only";
 	const [posts, setPosts] = useState<Post[]>([]);
 	const [messages, setMessages] = useState<RoomMessage[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -89,12 +93,21 @@ const TrustedLocalsPage = () => {
 	}, []);
 
 	const handleSend = async () => {
-		if (!message.trim()) return;
-		const { data } = await roomsApi.sendTrustedMessage(message.trim());
-		setMessages((prev) =>
-			prev.some((item) => item.id === data.id) ? prev : [...prev, data]
-		);
-		setMessage("");
+		if (!message.trim() || isWriteBlocked) return;
+		try {
+			const { data } = await roomsApi.sendTrustedMessage(message.trim());
+			setMessages((prev) =>
+				prev.some((item) => item.id === data.id)
+					? prev
+					: [...prev, data]
+			);
+			setMessage("");
+			setError(null);
+		} catch (err: unknown) {
+			setError(
+				getApiErrorMessage(err, "Failed to send trusted locals message")
+			);
+		}
 	};
 
 	return (
@@ -200,6 +213,11 @@ const TrustedLocalsPage = () => {
 							<Text fw={700} mb={10}>
 								Room chat
 							</Text>
+							{accountNotice?.kind === "read_only" && (
+								<Text size="xs" c="yellow" mb={10}>
+									{accountNotice.message}
+								</Text>
+							)}
 							<Stack gap="xs" mb={12}>
 								{messages.map((item) => (
 									<Box key={item.id}>
@@ -224,8 +242,13 @@ const TrustedLocalsPage = () => {
 							<Group wrap="nowrap">
 								<TextInput
 									style={{ flex: 1 }}
-									placeholder="Share what locals should know"
+									placeholder={
+										isWriteBlocked
+											? "Room chat is disabled while your account is read-only"
+											: "Share what locals should know"
+									}
 									value={message}
+									disabled={isWriteBlocked}
 									onChange={(event) =>
 										setMessage(event.currentTarget.value)
 									}
@@ -239,6 +262,7 @@ const TrustedLocalsPage = () => {
 								<ActionIcon
 									variant="filled"
 									color="violet"
+									disabled={isWriteBlocked || !message.trim()}
 									onClick={() => void handleSend()}
 								>
 									↑

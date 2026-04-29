@@ -3,19 +3,25 @@ import { Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { ghostApi } from "../api/ghost.api";
 import { useFeedStore } from "../store/feed.store";
+import { useAuthStore } from "../store/auth.store";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { getApiErrorMessage } from "../utils/apiErrors";
 
 const DURATIONS = [30, 60, 120];
 
 const GhostModePage = () => {
 	const navigate = useNavigate();
 	const location = useFeedStore((state) => state.location);
+	const accountNotice = useAuthStore((state) => state.accountNotice);
+	const isWriteBlocked = accountNotice?.kind === "read_only";
 	const [status, setStatus] = useState<string | null>(null);
+	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState<number | null>(null);
 	useGeolocation();
 
 	const handleShare = async (durationMinutes: number) => {
-		if (location.lat == null || location.lng == null) return;
+		if (location.lat == null || location.lng == null || isWriteBlocked)
+			return;
 		setLoading(durationMinutes);
 		try {
 			await ghostApi.shareLocation({
@@ -24,6 +30,9 @@ const GhostModePage = () => {
 				durationMinutes
 			});
 			setStatus(`Sharing with friends for ${durationMinutes} minutes`);
+			setError(null);
+		} catch (err: unknown) {
+			setError(getApiErrorMessage(err, "Failed to enable Ghost Mode"));
 		} finally {
 			setLoading(null);
 		}
@@ -34,6 +43,9 @@ const GhostModePage = () => {
 		try {
 			await ghostApi.stopSharing();
 			setStatus("Ghost mode is off");
+			setError(null);
+		} catch (err: unknown) {
+			setError(getApiErrorMessage(err, "Failed to disable Ghost Mode"));
 		} finally {
 			setLoading(null);
 		}
@@ -61,6 +73,17 @@ const GhostModePage = () => {
 			</Group>
 
 			<Stack gap="md">
+				{accountNotice?.kind === "read_only" && (
+					<Text size="sm" c="yellow">
+						{accountNotice.message}
+					</Text>
+				)}
+				{error && (
+					<Text size="sm" c="red">
+						{error}
+					</Text>
+				)}
+
 				<Paper
 					radius="lg"
 					style={{
@@ -87,9 +110,11 @@ const GhostModePage = () => {
 							color="violet"
 							loading={loading === duration}
 							onClick={() => handleShare(duration)}
-							disabled={location.lat == null}
+							disabled={location.lat == null || isWriteBlocked}
 						>
-							Share for {duration} minutes
+							{isWriteBlocked
+								? "Read-only"
+								: `Share for ${duration} minutes`}
 						</Button>
 					))}
 					<Button
