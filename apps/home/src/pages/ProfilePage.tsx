@@ -52,26 +52,32 @@ const ProfilePage = () => {
 						<Box className="gp-brand-mark">
 							<ProfileIcon size={22} />
 						</Box>
-						<Stack gap={4} align="center">
+						<Stack
+							gap={4}
+							align="center"
+							className="gp-empty-state__copy"
+						>
 							<Text fw={700} size="lg">
 								Sign in to GeoPulse
 							</Text>
 							<Text size="sm" c="dimmed" ta="center">
-								Create an account to publish pulses, save posts,
-								and shape your local identity.
+								Sign in to shape your local identity, track
+								momentum, and keep your saved spaces in one
+								place.
 							</Text>
 						</Stack>
-						<Button fullWidth onClick={() => navigate("/login")}>
-							Enter GeoPulse
-						</Button>
-						<Button
-							fullWidth
-							variant="subtle"
-							color="brand"
-							onClick={() => navigate("/register")}
-						>
-							Create account
-						</Button>
+						<Box className="gp-empty-state__actions">
+							<Button onClick={() => navigate("/login")}>
+								Sign in to manage your space
+							</Button>
+							<Button
+								variant="light"
+								color="brand"
+								onClick={() => navigate("/register")}
+							>
+								Create account
+							</Button>
+						</Box>
 					</Stack>
 				</Center>
 			</Box>
@@ -212,7 +218,11 @@ const ProfilePage = () => {
 								{email?.[0]?.toUpperCase() ?? "?"}
 							</Avatar>
 							<Box>
-								<Text fw={700} size="lg">
+								<Text
+									fw={700}
+									size="lg"
+									style={{ wordBreak: "break-word" }}
+								>
 									{email}
 								</Text>
 								<Text size="sm" c="dimmed" mt={2}>
@@ -220,7 +230,7 @@ const ProfilePage = () => {
 								</Text>
 								<Group gap={8} mt={10}>
 									<Badge color="brand" variant="light">
-										{profile?.karmaScore ?? 0} karma
+										{profile?.karmaScore ?? 0} karma bank
 									</Badge>
 									<Badge
 										color={
@@ -229,8 +239,8 @@ const ProfilePage = () => {
 										variant="light"
 									>
 										{profile?.isTrusted
-											? "Trusted Local"
-											: "Local in progress"}
+											? "Trusted access unlocked"
+											: "Trust building"}
 									</Badge>
 								</Group>
 							</Box>

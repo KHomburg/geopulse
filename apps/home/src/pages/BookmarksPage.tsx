@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
 	ActionIcon,
 	Box,
+	Button,
 	Center,
 	Loader,
 	Stack,
@@ -11,6 +12,7 @@ import {
 	Avatar,
 	Badge
 } from "@mantine/core";
+import { useNavigate } from "react-router-dom";
 import { bookmarksApi } from "../api/bookmarks.api";
 import type { Post } from "../api/posts.api";
 import PostMediaGallery from "../components/PostMediaGallery";
@@ -145,17 +147,24 @@ const BookmarkCard = ({ post }: { post: Post }) => (
 );
 
 const BookmarksPage = () => {
+	const navigate = useNavigate();
 	const [posts, setPosts] = useState<Post[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	useEffect(() => {
-		bookmarksApi
+	const loadBookmarks = useCallback(() => {
+		setLoading(true);
+		setError(null);
+		return bookmarksApi
 			.getMyBookmarks()
 			.then(setPosts)
 			.catch(() => setError("Failed to load bookmarks"))
 			.finally(() => setLoading(false));
 	}, []);
+
+	useEffect(() => {
+		void loadBookmarks();
+	}, [loadBookmarks]);
 
 	return (
 		<Box className="gp-page">
@@ -178,21 +187,50 @@ const BookmarksPage = () => {
 						<Box className="gp-empty-state__icon">
 							<BookmarkFilledIcon size={24} />
 						</Box>
-						<Text fw={700}>Bookmarks unavailable</Text>
-						<Text c="red" size="sm">
-							{error}
-						</Text>
+						<Box className="gp-empty-state__copy">
+							<Text fw={700}>Bookmarks unavailable</Text>
+							<Text c="red" size="sm">
+								{error}
+							</Text>
+						</Box>
+						<Box className="gp-empty-state__actions">
+							<Button onClick={() => void loadBookmarks()}>
+								Try again
+							</Button>
+							<Button
+								variant="light"
+								color="brand"
+								onClick={() => navigate("/feed")}
+							>
+								Browse feed
+							</Button>
+						</Box>
 					</Box>
 				) : posts.length === 0 ? (
 					<Box className="gp-empty-state">
 						<Box className="gp-empty-state__icon">
 							<BookmarkFilledIcon size={24} />
 						</Box>
-						<Text fw={700}>No saved posts yet</Text>
-						<Text c="dimmed" size="sm">
-							Save visual posts or local drops from the feed to
-							build a cleaner personal archive.
-						</Text>
+						<Box className="gp-empty-state__copy">
+							<Text fw={700}>No saved posts yet</Text>
+							<Text c="dimmed" size="sm">
+								Save standout posts, event notes, or local drops
+								from the feed to build a personal archive worth
+								revisiting.
+							</Text>
+						</Box>
+						<Box className="gp-empty-state__actions">
+							<Button onClick={() => navigate("/feed")}>
+								Browse feed
+							</Button>
+							<Button
+								variant="light"
+								color="brand"
+								onClick={() => navigate("/map")}
+							>
+								Open map
+							</Button>
+						</Box>
 					</Box>
 				) : (
 					posts.map((post) => (

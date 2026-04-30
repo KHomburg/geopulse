@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl, { type StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Box } from "@mantine/core";
+import { Box, Button, Group, Paper, Stack, Text } from "@mantine/core";
+import { useNavigate } from "react-router-dom";
 import { useFeedStore } from "../store/feed.store";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { FeedIcon, LocationIcon, RefreshIcon } from "../components/icons";
 
 const DEFAULT_CENTER = {
 	lat: 52.52,
@@ -35,10 +37,12 @@ const DEFAULT_MAP_STYLE: StyleSpecification = {
 const MAP_STYLE = import.meta.env.VITE_MAP_STYLE ?? DEFAULT_MAP_STYLE;
 
 const MapPage = () => {
+	const navigate = useNavigate();
 	const mapContainerRef = useRef<HTMLDivElement>(null);
 	const mapRef = useRef<maplibregl.Map | null>(null);
 	const [mapReady, setMapReady] = useState(false);
-	const { location, posts, loadFeed } = useFeedStore();
+	const { location, posts, loadFeed, radiusKm, filter, isLoadingFeed } =
+		useFeedStore();
 
 	useGeolocation();
 
@@ -83,6 +87,23 @@ const MapPage = () => {
 			duration: 900
 		});
 	}, [location.lat, location.lng, mapReady]);
+
+	const handleRecenter = () => {
+		if (!mapRef.current || !location.lat || !location.lng) return;
+
+		mapRef.current.flyTo({
+			center: [location.lng, location.lat],
+			zoom: 15,
+			duration: 750
+		});
+	};
+
+	const filterLabel =
+		filter === "now"
+			? "the last hour"
+			: filter === "week"
+			? "this week"
+			: "today";
 
 	useEffect(() => {
 		if (!location.lat || !location.lng) return;
@@ -173,6 +194,78 @@ const MapPage = () => {
 
 	return (
 		<Box style={{ position: "relative", width: "100%", height: "100%" }}>
+			<Box className="gp-map-overlay">
+				<Paper className="gp-surface gp-surface--strong gp-map-overlay__card">
+					<Stack gap="sm">
+						<Box>
+							<Text className="gp-page-header__eyebrow">
+								Live terrain
+							</Text>
+							<Text className="gp-map-overlay__title">
+								{location.lat
+									? posts.length > 0
+										? `${posts.length} pulses around you`
+										: "Your local map is ready"
+									: "Waiting for your location"}
+							</Text>
+							<Text size="sm" c="dimmed" mt={6}>
+								{location.lat
+									? `Showing ${filterLabel} activity within ${radiusKm} km. Open the feed when you want the same signals in list form.`
+									: "Turn on location access to center the map and reveal the pulses closest to you."}
+							</Text>
+						</Box>
+
+						<Group gap={8}>
+							<Box className="gp-mini-pill">
+								<LocationIcon size={14} />
+								<Text size="xs" c="inherit">
+									{location.lat
+										? `${radiusKm} km radius`
+										: "Locating you"}
+								</Text>
+							</Box>
+							<Box className="gp-mini-pill">
+								<Text size="xs" c="inherit">
+									{posts.length} visible pulse
+									{posts.length === 1 ? "" : "s"}
+								</Text>
+							</Box>
+						</Group>
+
+						<Box className="gp-map-overlay__actions">
+							<Button
+								size="xs"
+								onClick={() => void loadFeed(true)}
+								loading={isLoadingFeed}
+								leftSection={<RefreshIcon size={14} />}
+							>
+								Refresh nearby
+							</Button>
+							<Button
+								size="xs"
+								variant="light"
+								color="brand"
+								onClick={() => navigate("/feed")}
+								leftSection={<FeedIcon size={14} />}
+							>
+								Open feed
+							</Button>
+							{location.lat && location.lng && (
+								<Button
+									size="xs"
+									variant="subtle"
+									color="gray"
+									onClick={handleRecenter}
+									leftSection={<LocationIcon size={14} />}
+								>
+									Recenter
+								</Button>
+							)}
+						</Box>
+					</Stack>
+				</Paper>
+			</Box>
+
 			<div
 				ref={mapContainerRef}
 				style={{ width: "100%", height: "100%", background: "#0a0a0a" }}

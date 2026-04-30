@@ -233,18 +233,31 @@ const ContactsPage = () => {
 						<Box className="gp-brand-mark">
 							<ProfileIcon size={22} />
 						</Box>
-						<Stack gap={4} align="center">
+						<Stack
+							gap={4}
+							align="center"
+							className="gp-empty-state__copy"
+						>
 							<Text fw={700} size="lg">
 								Sign in to see contacts
 							</Text>
 							<Text size="sm" c="dimmed" ta="center">
-								Search nearby people, approve requests, and keep
-								your direct lines organized.
+								Search nearby people, approve requests, and turn
+								local encounters into a smaller trusted circle.
 							</Text>
 						</Stack>
-						<Button onClick={() => navigate("/login")}>
-							Enter GeoPulse
-						</Button>
+						<Box className="gp-empty-state__actions">
+							<Button onClick={() => navigate("/login")}>
+								Sign in to build your circle
+							</Button>
+							<Button
+								variant="light"
+								color="brand"
+								onClick={() => navigate("/register")}
+							>
+								Create account
+							</Button>
+						</Box>
 					</Stack>
 				</Center>
 			</Box>

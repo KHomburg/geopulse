@@ -158,7 +158,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 						const Icon = item.icon;
 						const buttonClassName = [
 							"gp-bottom-dock__button",
-							isActive ? "gp-bottom-dock__button--active" : ""
+							isActive ? "gp-bottom-dock__button--active" : "",
+							item.emphasis
+								? "gp-bottom-dock__button--emphasis"
+								: ""
 						]
 							.filter(Boolean)
 							.join(" ");
@@ -171,13 +174,21 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 								title={item.label}
 								className={buttonClassName}
 							>
-								<Box className="gp-bottom-dock__icon-shell">
-									<Icon className="gp-nav-icon" />
-									{badge > 0 && (
-										<Box className="gp-bottom-dock__badge">
-											{badge > 99 ? "99+" : badge}
-										</Box>
-									)}
+								<Box className="gp-bottom-dock__item">
+									<Box className="gp-bottom-dock__icon-shell">
+										<Icon className="gp-nav-icon" />
+										{badge > 0 && (
+											<Box className="gp-bottom-dock__badge">
+												{badge > 99 ? "99+" : badge}
+											</Box>
+										)}
+									</Box>
+									<Box
+										component="span"
+										className="gp-bottom-dock__label"
+									>
+										{item.label}
+									</Box>
 								</Box>
 							</UnstyledButton>
 						);

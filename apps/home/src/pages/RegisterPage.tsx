@@ -176,7 +176,7 @@ const RegisterPage = () => {
 									component="button"
 									type="button"
 									onClick={() => navigate("/login")}
-									style={{ color: "#6c63ff" }}
+									className="gp-auth-link"
 								>
 									Sign In
 								</Anchor>

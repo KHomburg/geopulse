@@ -85,18 +85,32 @@ const MessagesPage = () => {
 						<Box className="gp-brand-mark">
 							<MessagesIcon size={22} />
 						</Box>
-						<Stack gap={4} align="center">
+						<Stack
+							gap={4}
+							align="center"
+							className="gp-empty-state__copy"
+						>
 							<Text fw={700} size="lg">
 								Sign in to see messages
 							</Text>
 							<Text size="sm" c="dimmed" ta="center">
-								Keep your direct lines, local replies, and
-								planning threads in one place.
+								Unlock direct lines for event planning, local
+								replies, and one-to-one followups without losing
+								the thread.
 							</Text>
 						</Stack>
-						<Button onClick={() => navigate("/login")}>
-							Enter GeoPulse
-						</Button>
+						<Box className="gp-empty-state__actions">
+							<Button onClick={() => navigate("/login")}>
+								Sign in to unlock direct lines
+							</Button>
+							<Button
+								variant="light"
+								color="brand"
+								onClick={() => navigate("/register")}
+							>
+								Create account
+							</Button>
+						</Box>
 					</Stack>
 				</Center>
 			</Box>
@@ -129,20 +143,30 @@ const MessagesPage = () => {
 							<Box className="gp-brand-mark">
 								<MessagesIcon size={22} />
 							</Box>
-							<Stack gap={4} align="center">
+							<Stack
+								gap={4}
+								align="center"
+								className="gp-empty-state__copy"
+							>
 								<Text fw={700}>No messages yet</Text>
 								<Text size="sm" c="dimmed" ta="center">
-									Go to Contacts to start a conversation and
-									build your local circle.
+									Start with a contact request, then bring
+									quick plans or local followups into a
+									private thread.
 								</Text>
 							</Stack>
-							<Button
-								variant="subtle"
-								color="brand"
-								onClick={() => navigate("/contacts")}
-							>
-								View contacts
-							</Button>
+							<Box className="gp-empty-state__actions">
+								<Button onClick={() => navigate("/contacts")}>
+									View contacts
+								</Button>
+								<Button
+									variant="light"
+									color="brand"
+									onClick={() => navigate("/feed")}
+								>
+									Browse feed
+								</Button>
+							</Box>
 						</Stack>
 					</Center>
 				) : (

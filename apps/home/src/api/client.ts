@@ -34,6 +34,10 @@ export const apiClient = axios.create({
 
 // Attach JWT on every request when available
 apiClient.interceptors.request.use((config) => {
+	config.headers["Cache-Control"] = "no-store";
+	config.headers.Pragma = "no-cache";
+	config.headers.Expires = "0";
+
 	const token = localStorage.getItem("gp_access_token");
 	if (token) {
 		config.headers.Authorization = `Bearer ${token}`;

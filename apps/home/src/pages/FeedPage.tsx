@@ -4,6 +4,7 @@ import {
 	Avatar,
 	Badge,
 	Box,
+	Button,
 	Center,
 	Group,
 	Loader,
@@ -662,8 +663,10 @@ const FeedPage = () => {
 		hasMore,
 		removePost,
 		location,
-		feedError
+		feedError,
+		radiusKm
 	} = useFeedStore();
+	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 	const bottomRef = useRef<HTMLDivElement>(null);
 	useGeolocation();
 
@@ -798,39 +801,99 @@ const FeedPage = () => {
 							<LocationIcon size={24} />
 						</Box>
 						<Loader color="brand" size="sm" />
-						<Text fw={700}>Getting your location</Text>
-						<Text c="dimmed" size="sm">
-							The feed is tuned to where you are standing right
-							now.
-						</Text>
+						<Box className="gp-empty-state__copy">
+							<Text fw={700}>Getting your location</Text>
+							<Text c="dimmed" size="sm">
+								The feed locks onto what is happening around
+								you, so it needs your current position before
+								the first pulse can load.
+							</Text>
+						</Box>
+						<Box className="gp-empty-state__actions">
+							<Button
+								variant="light"
+								color="brand"
+								onClick={() => navigate("/map")}
+							>
+								Open map instead
+							</Button>
+						</Box>
 					</Box>
 				) : feedError ? (
 					<Box className="gp-empty-state">
 						<Box className="gp-empty-state__icon">
 							<AlertIcon size={24} />
 						</Box>
-						<Text fw={700}>Feed unavailable</Text>
-						<Text c="red" size="sm">
-							{feedError}
-						</Text>
-						<ActionIcon
-							variant="filled"
-							size="lg"
-							onClick={() => loadFeed(true)}
-						>
-							<RefreshIcon size={16} />
-						</ActionIcon>
+						<Box className="gp-empty-state__copy">
+							<Text fw={700}>Feed unavailable</Text>
+							<Text c="red" size="sm">
+								{feedError}
+							</Text>
+							<Text c="dimmed" size="sm">
+								Retry the nearby feed or jump to the map while
+								the list refreshes.
+							</Text>
+						</Box>
+						<Box className="gp-empty-state__actions">
+							<Button
+								onClick={() => void loadFeed(true)}
+								leftSection={<RefreshIcon size={14} />}
+							>
+								Retry feed
+							</Button>
+							<Button
+								variant="light"
+								color="brand"
+								onClick={() => navigate("/map")}
+							>
+								View map
+							</Button>
+						</Box>
 					</Box>
 				) : posts.length === 0 && !isLoadingFeed ? (
 					<Box className="gp-empty-state">
 						<Box className="gp-empty-state__icon">
 							<GlobeIcon size={24} />
 						</Box>
-						<Text fw={700}>Nothing nearby yet</Text>
-						<Text c="dimmed" size="sm">
-							When locals post from around you, they will appear
-							here as a cleaner visual timeline.
-						</Text>
+						<Box className="gp-empty-state__copy">
+							<Text fw={700}>Nothing nearby yet</Text>
+							<Text c="dimmed" size="sm">
+								You are scanning{" "}
+								{filter === "now"
+									? "the last hour"
+									: filter === "week"
+									? "this week"
+									: "today"}{" "}
+								within {radiusKm} km.
+								{selectedTags.length > 0
+									? ` ${selectedTags.length} vibe filter${
+											selectedTags.length === 1
+												? " is"
+												: "s are"
+									  } active right now.`
+									: " Try a different timeframe or seed the area with your own pulse."}
+							</Text>
+						</Box>
+						<Box className="gp-empty-state__actions">
+							<Button
+								onClick={() =>
+									navigate(
+										isAuthenticated ? "/post/new" : "/login"
+									)
+								}
+							>
+								{isAuthenticated
+									? "Create a pulse"
+									: "Sign in to post"}
+							</Button>
+							<Button
+								variant="light"
+								color="brand"
+								onClick={() => navigate("/map")}
+							>
+								Open map
+							</Button>
+						</Box>
 					</Box>
 				) : (
 					posts.map((post) => (
