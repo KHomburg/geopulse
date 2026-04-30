@@ -1,6 +1,5 @@
 import { Router } from "express";
 import {
-	CreateUser,
 	GetMe,
 	GetPerkCatalog,
 	GetUser,
@@ -27,7 +26,6 @@ UserRouter.post(
 );
 UserRouter.get("/", GetUsers);
 UserRouter.get("/:id", GetUser);
-UserRouter.post("/", CreateUser);
 UserRouter.delete(
 	"/:id",
 	AuthMiddleware,

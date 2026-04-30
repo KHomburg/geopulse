@@ -1,6 +1,15 @@
-// Remove sensitive fields from user instances before returning to clients
-export function sanitizeUser(user: any) {
-	const plain = typeof user.toJSON === "function" ? user.toJSON() : user;
-	const { password, role, accountStatus, ...rest } = plain;
+function toPlainUser(user: any) {
+	return typeof user.toJSON === "function" ? user.toJSON() : user;
+}
+
+export function sanitizePublicUser(user: any) {
+	const plain = toPlainUser(user);
+	const { password, email, role, accountStatus, ...rest } = plain;
+	return rest;
+}
+
+export function sanitizePrivateUser(user: any) {
+	const plain = toPlainUser(user);
+	const { password, ...rest } = plain;
 	return rest;
 }

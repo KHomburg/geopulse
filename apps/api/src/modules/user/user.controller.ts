@@ -2,15 +2,12 @@
 import { Request, Response } from "express";
 import UserService from "./user.service";
 import {
-	CreateUserSchema,
 	UpdateUserSchema,
 	UpdateUserEmailSchema,
 	UserParamsSchema
 } from "./user.schemas";
 import { z } from "zod";
 import { PERK_KEYS } from "./user.perks";
-
-// TODO: add authentication middleware
 
 export const GetUser = async (
 	req: Request,
@@ -95,21 +92,6 @@ export const GetUsers = async (
 		return res.status(200).json(users);
 	} catch (error: unknown) {
 		console.error(error);
-		return res.status(500).json({ message: "Internal server error" });
-	}
-};
-
-export const CreateUser = async (
-	req: Request,
-	res: Response
-): Promise<Response> => {
-	try {
-		const dto = CreateUserSchema.parse(req.body);
-
-		const newUser = await UserService.createUser(dto as any);
-		return res.status(201).json(newUser);
-	} catch (error: unknown) {
-		console.log(error);
 		return res.status(500).json({ message: "Internal server error" });
 	}
 };

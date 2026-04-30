@@ -15,7 +15,7 @@ RefreshToken.init(
 	{
 		id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
 		userId: { type: DataTypes.INTEGER, allowNull: false },
-		token: { type: DataTypes.STRING, allowNull: false },
+		token: { type: DataTypes.STRING, allowNull: false, unique: true },
 		revoked: {
 			type: DataTypes.BOOLEAN,
 			allowNull: false,
@@ -28,7 +28,12 @@ RefreshToken.init(
 		modelName: "RefreshToken",
 		tableName: "refresh_token",
 		timestamps: true,
-		paranoid: false
+		paranoid: false,
+		indexes: [
+			{
+				fields: ["userId", "revoked"]
+			}
+		]
 	}
 );
 

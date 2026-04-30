@@ -11,6 +11,7 @@ import request from "supertest";
 import App from "../../shared/config/express.config";
 import { sequelize } from "../../shared/config/sequelize.config";
 import { config } from "../../shared/config/env.config";
+import RefreshToken from "./refreshToken.model";
 import User from "../user/user.model";
 
 describe("Auth routes (SQLite)", () => {
@@ -54,7 +55,7 @@ describe("Auth routes (SQLite)", () => {
 
 	it("logs in and returns access + refresh tokens", async () => {
 		const email = uniqueEmail();
-		await request(App)
+		const registered = await request(App)
 			.post("/api/v1/auth/register")
 			.send({ email, password: "secret123" })
 			.expect(201);
@@ -78,6 +79,12 @@ describe("Auth routes (SQLite)", () => {
 		expect(decoded.accountStatus).toBe("active");
 		expect(res.body.refreshToken).toBeDefined();
 		expect(typeof res.body.refreshToken).toBe("string");
+
+		const persisted = await RefreshToken.findOne({
+			where: { userId: registered.body.id }
+		});
+		expect(persisted).not.toBeNull();
+		expect(persisted?.token).not.toBe(res.body.refreshToken);
 	});
 
 	it("fails login with wrong password", async () => {

@@ -3,8 +3,12 @@ import Contact, { ContactStatus } from "./contact.model";
 import User from "../user/user.model";
 
 export const ContactRepository = {
-	async create(requesterId: number, addresseeId: number): Promise<Contact> {
-		return Contact.create({ requesterId, addresseeId, status: "pending" });
+	async create(
+		requesterId: number,
+		addresseeId: number,
+		status: ContactStatus = "pending"
+	): Promise<Contact> {
+		return Contact.create({ requesterId, addresseeId, status });
 	},
 
 	async findBetween(userA: number, userB: number): Promise<Contact | null> {

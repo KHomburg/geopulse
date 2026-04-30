@@ -19,3 +19,7 @@ export function signAccessToken(payload: AccessTokenPayload) {
 export function generateRefreshTokenValue() {
 	return crypto.randomBytes(32).toString("hex");
 }
+
+export function hashRefreshTokenValue(token: string) {
+	return crypto.createHash("sha256").update(token).digest("hex");
+}

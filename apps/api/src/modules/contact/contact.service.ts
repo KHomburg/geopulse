@@ -1,5 +1,4 @@
 import { ContactRepository } from "./contact.repository";
-import Contact from "./contact.model";
 import NotificationService from "../notification/notification.service";
 
 const ContactService = {
@@ -74,16 +73,18 @@ const ContactService = {
 	},
 
 	async blockUser(userId: number, targetId: number) {
+		if (userId === targetId) {
+			throw Object.assign(new Error("Cannot block yourself"), {
+				status: 400
+			});
+		}
+
 		const existing = await ContactRepository.findBetween(userId, targetId);
 		if (existing) {
 			await ContactRepository.updateStatus(existing.id, "blocked");
 			return ContactRepository.findById(existing.id);
 		}
-		return Contact.create({
-			requesterId: userId,
-			addresseeId: targetId,
-			status: "blocked"
-		});
+		return ContactRepository.create(userId, targetId, "blocked");
 	},
 
 	async getFriends(userId: number) {

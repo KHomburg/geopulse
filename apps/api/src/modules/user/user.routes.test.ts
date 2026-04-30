@@ -50,37 +50,36 @@ describe("User routes (SQLite)", () => {
 		return { ...user, token: login.body.token as string };
 	}
 
-	it("creates a user via POST /api/user and returns it", async () => {
-		const email = uniqueEmail();
-		const res = await request(App)
+	it("does not expose a public user creation endpoint", async () => {
+		await request(App)
 			.post("/api/v1/user")
-			.send({ email, password: "secret123" })
-			.expect(201);
-		expect(res.body.id).toBeDefined();
-		expect(res.body.email).toBe(email);
-
-		const get = await request(App)
-			.get(`/api/v1/user/${res.body.id}`)
-			.expect(200);
-		expect(get.body.id).toBe(res.body.id);
-		expect(get.body.email).toBe(email);
+			.send({ email: uniqueEmail(), password: "secret123" })
+			.expect(404);
 	});
 
-	it("lists users via GET /api/user", async () => {
-		const emails = [uniqueEmail(), uniqueEmail()];
-		await request(App)
-			.post("/api/v1/user")
-			.send({ email: emails[0], password: "secret123" })
-			.expect(201);
-		await request(App)
-			.post("/api/v1/user")
-			.send({ email: emails[1], password: "secret123" })
-			.expect(201);
+	it("lists users without exposing email addresses", async () => {
+		const first = await registerUser();
+		const second = await registerUser();
 
 		const res = await request(App).get("/api/v1/user").expect(200);
 		const list = res.body as Array<any>;
-		const found = list.filter((u) => emails.includes(u.email));
-		expect(found.length).toBe(2);
+		const found = list.filter((user) =>
+			[first.id, second.id].includes(user.id)
+		);
+		expect(found).toHaveLength(2);
+		for (const user of found) {
+			expect(user).not.toHaveProperty("email");
+		}
+	});
+
+	it("returns a public user profile without email address", async () => {
+		const created = await registerUser();
+
+		const get = await request(App)
+			.get(`/api/v1/user/${created.id}`)
+			.expect(200);
+		expect(get.body.id).toBe(created.id);
+		expect(get.body).not.toHaveProperty("email");
 	});
 
 	it("updates a user via PUT /api/user/:id (auth required)", async () => {

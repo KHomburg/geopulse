@@ -1,5 +1,6 @@
 import User from "../user/user.model";
 import RefreshToken from "./refreshToken.model";
+import { hashRefreshTokenValue } from "./auth.utils";
 
 export const AuthRepository = {
 	async findByEmail(email: string) {
@@ -24,11 +25,16 @@ export const AuthRepository = {
 		token: string;
 		expiresAt: Date;
 	}) {
-		return RefreshToken.create(payload as any);
+		return RefreshToken.create({
+			...payload,
+			token: hashRefreshTokenValue(payload.token)
+		} as any);
 	},
 
 	async revokeRefreshToken(token: string) {
-		const rt = await RefreshToken.findOne({ where: { token } });
+		const rt = await RefreshToken.findOne({
+			where: { token: hashRefreshTokenValue(token) }
+		});
 		if (!rt) return false;
 		await rt.update({ revoked: true });
 		return true;
@@ -41,7 +47,10 @@ export const AuthRepository = {
 
 	async findValidRefreshToken(token: string) {
 		const rt = await RefreshToken.findOne({
-			where: { token, revoked: false }
+			where: {
+				token: hashRefreshTokenValue(token),
+				revoked: false
+			}
 		});
 		if (!rt) return null;
 		if (new Date(rt.expiresAt).getTime() <= Date.now()) return null;

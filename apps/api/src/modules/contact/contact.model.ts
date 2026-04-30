@@ -7,9 +7,17 @@ export class Contact extends Model {
 	declare id: number;
 	declare requesterId: number;
 	declare addresseeId: number;
+	declare pairKey: string;
 	declare status: ContactStatus;
 	declare createdAt: Date;
 	declare updatedAt: Date;
+}
+
+function buildPairKey(requesterId: number, addresseeId: number) {
+	const [lowerUserId, higherUserId] = [requesterId, addresseeId].sort(
+		(left, right) => left - right
+	);
+	return `${lowerUserId}:${higherUserId}`;
 }
 
 Contact.init(
@@ -28,6 +36,11 @@ Contact.init(
 			type: DataTypes.INTEGER,
 			allowNull: false
 		},
+		pairKey: {
+			type: DataTypes.STRING,
+			allowNull: false,
+			unique: true
+		},
 		status: {
 			type: DataTypes.ENUM("pending", "accepted", "blocked"),
 			allowNull: false,
@@ -39,10 +52,23 @@ Contact.init(
 		modelName: "Contact",
 		tableName: "contact",
 		timestamps: true,
+		hooks: {
+			beforeValidate(contact) {
+				if (
+					Number.isInteger(contact.requesterId) &&
+					Number.isInteger(contact.addresseeId)
+				) {
+					contact.pairKey = buildPairKey(
+						contact.requesterId,
+						contact.addresseeId
+					);
+				}
+			}
+		},
 		indexes: [
 			{
 				unique: true,
-				fields: ["requesterId", "addresseeId"]
+				fields: ["pairKey"]
 			}
 		]
 	}
